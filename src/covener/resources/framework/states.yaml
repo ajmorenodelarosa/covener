@@ -1,0 +1,41 @@
+# Covener state model. Code validates it; agents reason within it.
+version: 1
+
+spec:                       # specs/<id>.md -> status:   what the product is (a living document)
+  states: [draft, approved, done]
+  transitions:
+    draft: [approved]       # human approves the text
+    approved: [draft, done] # done only after the work was approved in a sprint work log
+    done: [draft]           # editing a done spec (extend, change or remove a requirement) reopens it
+  human_gated: [[draft, approved], [approved, done]]
+
+bug:                        # bugs/<id>.md -> status:    what is wrong
+  states: [open, done]
+  transitions:
+    open: [done]            # done only after the fix was approved in a sprint work log
+    done: []
+  human_gated: [[open, done]]
+
+task:                       # tasks/<id>.md -> status:   work that changes neither what the product is nor fixes a bug
+  states: [open, done]
+  transitions:
+    open: [done]            # done only after the work was approved in a sprint work log
+    done: []
+  human_gated: [[open, done]]
+
+sprint:                     # sprints/<name>/sprint.md -> owner, status, specs, bugs, tasks
+  states: [active, review, closed]
+  transitions:
+    active: [review]        # agents finished; feedback requested
+    review: [active, closed]
+  human_gated: [[review, closed]]
+  rules:
+    - one sprint, one owner (owner: in sprint.md); one open sprint per owner is the norm (a hotfix may be a second)
+    - an item is in at most one open sprint
+    - a sprint takes approved specs, open bugs and open tasks; its scope does not change once active
+    - a sprint closes only when every item in it ends with "Approved: Yes"
+    - a closed sprint is moved to sprints/archive/YYYY-MM-DD-<name>/
+
+work:                       # derived from sprints/<name>/{specs,bugs,tasks}/<id>.md, never stored
+  states: [not_started, in_progress, awaiting_feedback, changes_requested, approved]
+  rule: 'the last "## ..." entry decides (the ## Checklist does not count); a "## Feedback" entry carries Approved: Yes or No'

@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "covener"
+version = "0.1.0"
+description = "Covener: spec-driven development for AI agent teams. The repository is the truth, you approve."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "ajmorenodelarosa" }]
+keywords = ["covener", "spec-driven-development", "ai-agents", "claude-code", "cursor", "agents-md", "methodology"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+]
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.0"]
+knowledge = ["pypdf>=6.1"]
+oracle = [
+  "covener[mcp,knowledge]",
+  "lightrag-hku>=1.5.7",
+  "anthropic>=1.0",
+  "voyageai>=0.5",
+  "numpy>=1.24",
+]
+dev = ["pytest>=8.0", "ruff>=0.5", "mypy>=1.10", "types-PyYAML", "pypdf>=6.1", "mcp>=2.0"]
+
+[project.scripts]
+covener = "covener.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ajmorenodelarosa/covener"
+Documentation = "https://github.com/ajmorenodelarosa/covener#readme"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/covener"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/covener", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = false
+files = ["src/covener"]
+
+[[tool.mypy.overrides]]
+module = ["lightrag", "lightrag.*", "voyageai", "anthropic", "mcp.server", "pypdf"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
