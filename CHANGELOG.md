@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - 2026-09-14
+
+### Changed
+- README: clearer team review section, explicit limits of the approval rule, no unverifiable claims.
+
 ## [0.1.1] - 2026-09-14
 
 ### Changed
