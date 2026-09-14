@@ -25,16 +25,16 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   deviates, and what has to be done never mix and never grow.
 - **Sprints hold the work**: one work log per item with a checklist, the agents' summaries,
   decisions and reviews, and your feedback. Closed sprints are archived; nothing is stored twice.
-- **Built for teams, reviewed at agent speed.** Every developer runs their own sprint with their own
-  agents, in parallel, without colliding. Nobody reads thousands of generated lines: you review the
-  work log and the reviewer's findings, and open the diff only where they point.
+- **Built for teams.** Each developer runs their own sprint with their own agents, in parallel,
+  on their own branch; the layout is designed so they never collide. A lead reviews the sprint from
+  its work logs and the reviewer agent's findings, and reads code where those point.
 - **Approval is a rule in a file.** An item is `done` only when a human wrote `Approved: Yes` in its
   work log. `covener status --strict` fails CI when that rule, or any consistency rule, is broken.
 - **Knowledge is evidence.** Regulations, contracts and procedures in `knowledge/` become a
   page-anchored corpus with a citation graph and an optional semantic graph; agents cite
   `file#page-N`, reviewers verify, and `status` flags dangling references.
-- **Nothing runs a server, calls a model or needs the package** once initialised. Two commands for
-  the method, one for knowledge, one to expose both as MCP tools.
+- **The core runs no server and calls no model.** Once initialised, the repository works without
+  the package. Two commands for the method; the knowledge layer and the MCP server are optional extras.
 
 ## Why Covener
 
@@ -53,11 +53,11 @@ the approval something an auditor can rely on rather than a line in a prompt. **
 come from regulations cite their evidence page by page**, backed by a citation graph built without a
 model, so nothing about a law can be hallucinated.
 
-And it scales to a team. When every developer drives agents that write more code in a day than a
-person can read in a week, the pull request stops being a review tool. Covener moves the review to
-where the meaning is: a work log that says what was built, what was decided, what QA proved and what
-the independent reviewer flagged, next to the requirement it serves. A lead reviews a whole sprint in
-minutes and spends their attention on the three lines that matter. All of it with two files per
+And it is built for teams. When several developers drive agents, the volume of generated code
+outgrows line-by-line review, and what actually happens is skimming. Covener gives the reviewer a
+map instead: a work log per item that says what was built, what was decided, which test proves
+which criterion, and what the independent reviewer flagged, with file and line, next to the
+requirement it serves. The human reads the code where the map points. All of it with two files per
 item, five roles with hard boundaries, and a layout you can explain in a minute.
 
 ## How it works
@@ -230,48 +230,51 @@ hotfix looks like.
 
 ## Teams and review
 
-Agents write code faster than people can read it. A sprint of three developers with agents easily
-produces tens of thousands of changed lines; reviewing that line by line is theatre. Covener makes
-the unit of review the work, not the diff.
+Agents make code cheap and review expensive. Covener answers with two things: a layout where
+developers work in parallel without stepping on each other, and a unit of review that is not the
+diff.
 
-**What a reviewer reads.** For each item in a sprint, one file: the checklist (what was done), the
-summary (where), the decisions (why), the QA entry (which test proves which acceptance criterion),
-and the reviewer agent's findings ordered by severity with file and line. Critical and high findings
-are where you open the code. Everything else you approve from the record, and your approval is in
-the same file, dated, for anyone who asks later.
+**In parallel, without collisions.**
 
-**What a lead sees.** `covener status` across the repository: every open sprint, its owner, each
-item's state and checklist progress, what is waiting for a human, and what is inconsistent. It is
-the stand-up, generated from the files.
-
-**How a team works in parallel.**
-
-- One sprint, one owner, one branch, one pull request. Git isolates parallel work; Covener makes the
+- One sprint, one owner, one branch, one pull request. Git isolates the work; Covener makes the
   rules checkable.
-- Name sprints by what they deliver (`account-closure`), never by number: sequential numbers collide
-  the moment two people branch.
+- Sprints are named by what they deliver (`account-closure`), never numbered, so two people
+  branching on the same day cannot collide.
 - The owner is a field in `sprint.md`. One open sprint per owner is the norm; an item is in at most
   one open sprint. `covener status` flags both after a merge.
-- Specs, bugs and tasks are one file each, so two people rarely touch the same one. There is no
-  shared backlog file to fight over.
-- History is the archive of closed sprints plus `status: done` in the item. Archive after the pull
-  request merges. Everything is committed.
+- Specs, bugs and tasks are one file each and there is no backlog file, so there is no shared list
+  to fight over.
+- Closed sprints are archived by date. Everything is committed.
 
-**The reviewer in CI.** The same reviewer agent that works in the IDE can review a pull request
-headlessly and publish its findings, so the human reviewer starts from a severity-ordered summary
-instead of a diff:
+**Review the work, then the code.** Each item in a sprint has one work log. A reviewer reads, in
+order: the checklist (what was done), the summary (where), the decisions (why), the QA entry (which
+test proves which acceptance criterion) and the reviewer agent's findings ordered by severity with
+file and line. Critical and high findings, security, money and data are where you open the code.
+The rest you check against the record. Your verdict goes in the same file as `## Feedback`, and
+git records who wrote it and when.
+
+**What a lead sees.** `covener status` across the repository: every open sprint, its owner, each
+item's state and checklist progress, what is waiting for a human, what is inconsistent. It is the
+stand-up, generated from the files.
+
+**What the rule can and cannot do.** Nothing physically stops an agent from typing
+`Approved: Yes`. The agent prompts forbid it, `status` makes every approval a visible line that CI
+checks, and git blame tells you who wrote it. That is more than a review step in a prompt, and less
+than a signature; treat it accordingly.
+
+**Your reviewer in CI.** The reviewer agent is a file in your repository, so the same agent that
+reviews in the IDE can review a pull request headlessly and publish its findings as the starting
+point for the human reviewer. An example with Claude Code; adapt it to your CI and tool:
 
 ```yaml
-# .github/workflows/review.yml (excerpt)
 - run: pip install covener && covener status --strict
 - run: npm install -g @anthropic-ai/claude-code
 - env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    claude -p --agent reviewer --output-format text \
-      --allowedTools "Read" "Bash(git diff *)" "Bash(git log *)" \
-      "Review this pull request against the work logs of the sprint it closes. \
-       Report findings by severity with file and line, and compliance against cited references." \
+    claude -p --agent reviewer --allowedTools "Read" "Bash(git diff *)" "Bash(git log *)" \
+      "Review this pull request against the work logs of the sprint it closes. Report findings \
+       by severity with file and line, and compliance against cited references." \
       >> "$GITHUB_STEP_SUMMARY"
 ```
 
@@ -312,7 +315,8 @@ regular expression. Nothing in this layer can be hallucinated.
 **Knowledge Oracle**, optional. A graph of entities and relationships plus vector retrieval over the
 same Markdown, built with a frontier model and stored as local files (LightRAG: NetworkX graph,
 nano-vectordb, no server). One tool, `search_knowledge`, returns answer, relations and evidence with
-`knowledge/<file>.md#page-N` references. Without evidence it says so instead of guessing.
+`knowledge/<file>.md#page-N` references. The evidence list is the part to trust: when retrieval
+finds nothing, it is empty and the answer is instructed to say so.
 
 ```bash
 covener knowledge ask "A customer closes their account and asks us to delete everything. What must we erase and what must we keep?"
@@ -350,9 +354,10 @@ references: [knowledge/gdpr.md#page-43, knowledge/gdpr.md#page-44, knowledge/aml
 Models: `claude-sonnet-5` for extraction and answers, `voyage-4-large` for retrieval, both
 multilingual; the Oracle answers in the language of the question. Override with `COVENER_LLM_MODEL`
 and `COVENER_EMBED_MODEL` (`voyage-law-2` is tuned for legal text). Keys (`ANTHROPIC_API_KEY`,
-`VOYAGE_API_KEY`) live in the environment, never in the repository. Indexing costs cents to a few
-dollars per hundred documents. The graph lives in `.covener/knowledge/` (ignored by git,
-rebuildable); the Markdown and both index files are committed and reviewable.
+`VOYAGE_API_KEY`) live in the environment, never in the repository. Indexing is incremental and
+costs on the order of a few dollars per hundred documents, depending on model and document length.
+The graph lives in `.covener/knowledge/` (ignored by git, rebuildable); the Markdown and both index
+files are committed and reviewable.
 
 ## Tools: CLI and MCP
 
@@ -399,7 +404,8 @@ a fast model for QA, a balanced one for the engineer, a strong one for the rest.
 `engineer.md` is visible to every tool through the links). For stack-specific know-how, prefer
 skills over more roles: Claude Code and Cursor load a skill only when the task needs it, so one
 engineer with `frontend`, `backend` and `infra` skills stays cheaper and more consistent than three
-engineers with three prompts. Keep `agents/` for boundaries and `skills/` for expertise.
+engineers with three prompts. Keep `agents/` for boundaries and your tool's skills directory for
+expertise.
 
 ```yaml
 # .covener/config.yaml
@@ -465,11 +471,9 @@ exactly those four things.
 
 ## Roadmap
 
-- Codex and Windsurf link adapters; `skills/` linked like `agents/`.
+- Codex and Windsurf link adapters, and skills linked like agents.
 - `/covener` chat commands for approving and requesting changes from the conversation.
-- A packaged reviewer GitHub Action that posts the findings as a pull request comment and a sprint
-  review digest for leads.
-- Knowledge Oracle: DOCX and HTML sources, more citation jurisdictions, compliance reports per spec.
+- Knowledge Oracle: DOCX and HTML sources and more citation jurisdictions.
 
 ## Contributing
 
