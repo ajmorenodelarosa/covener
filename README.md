@@ -22,7 +22,8 @@ Covener is a repository layout, a deterministic checker and a set of agent defin
 Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team you can govern.
 
 - **Specifications, bugs and tasks are files** with a status. What the product is, where it
-  deviates, and what has to be done never mix and never grow.
+  deviates, and what has to be done never mix and never grow. Specs are grouped by domain folder
+  (`specs/billing/`, `specs/user-management/`), so an agent reads a whole domain before changing it.
 - **Sprints hold the work**: one work log per item with a checklist, the agents' summaries,
   decisions and reviews, and your feedback. Closed sprints are archived; nothing is stored twice.
 - **Built for teams.** Each developer runs their own sprint with their own agents, in parallel,
@@ -78,7 +79,7 @@ the kind of requirement Covener is built for.
 
 | Step | Role | What happens in the repository |
 |---|---|---|
-| 1 | product | Asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/account-closure.md`: erase marketing, profiling and app data at once; keep KYC and transaction records for five years with restricted access, then erase them. Every criterion cites its article in `references:`. You set `status: approved`. |
+| 1 | product | Reads every spec in `specs/privacy/`, asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/privacy/account-closure.md`: erase marketing, profiling and app data at once; keep KYC and transaction records for five years with restricted access, then erase them. Every criterion cites its article in `references:`. You set `status: approved`. |
 | 2 | planner | Opens `sprints/account-closure/` with the spec (open bugs first) and writes the checklist in the work log. |
 | 3 | engineer, qa, reviewer | Implement, test each criterion, and review architecture, security and compliance: the reviewer opens every cited page and checks the code against its wording. |
 | 4 | planner | Sets the sprint to `review` and tells you what to evaluate. |
@@ -93,8 +94,8 @@ covener status        # backlog, sprints, inconsistencies, what to do next
 
 ```
 specs/vision.md                     product intent
-specs/<id>.md                       what the product is: one living file per spec (draft -> approved -> done)
-bugs/<id>.md                        what is wrong (open -> done)
+specs/<domain>/<name>.md            what the product is: one living file per spec, by domain (draft -> approved -> done)
+bugs/<id>.md                        what is wrong (open -> done); spec: names the affected spec
 tasks/<id>.md                       work that changes neither: migrations, refactors, upgrades (open -> done)
 sprints/<name>/sprint.md            owner, status, specs, bugs and tasks in scope (active -> review -> closed)
 sprints/<name>/<kind>s/<id>.md      the item's work log: checklist, summary, decisions, QA, review, feedback
@@ -105,7 +106,13 @@ AGENTS.md                           a small block every coding agent reads (CLAU
 .covener/config.yaml                role to agent mapping and tools; nothing else
 ```
 
-Domain folders are fine: `specs/privacy/account-closure.md` has the id `privacy/account-closure`.
+**Domains.** The first folder under `specs/` is the domain: `specs/privacy/account-closure.md` has
+the id `privacy/account-closure` and belongs to `privacy`. The Product agent reads the whole domain
+before writing a spec, which is how contradictions and duplicates are caught before they reach code,
+and the reviewer checks a change against its sibling specs. Bugs and tasks stay flat; their `spec:`
+field puts them in the domain of the spec they concern. `covener status --domain privacy` shows only
+that domain: its specs, the bugs and tasks that name them, its sprints and its next actions. Small
+projects can keep `specs/` flat; nothing requires domains.
 
 **Which folder?** If in a year someone must read it to know what the product is, it is a spec. If
 it describes something that is wrong today, it is a bug. If they only need to know it was done, it
@@ -114,16 +121,17 @@ goes back to `draft`, approve it again, and a sprint carries the change. Its his
 that touched it.
 
 **No backlog file.** The backlog is every open bug, approved spec and open task that is not in an
-open sprint: bugs first, then everything by two optional front matter fields, `priority` and `epic`.
-Reprioritising is a one-line change in one file, so a team never fights over a list.
+open sprint: bugs first, then by the `priority` field. Reprioritising is a one-line change in one
+file, so a team never fights over a list.
 
 ## The work log
 
-`sprints/<name>/specs/<id>.md` (or `bugs/<id>.md`, `tasks/<id>.md`) is a chronological log. Agents
-add entries; you add one.
+`sprints/<name>/specs/<id>.md` (or `bugs/<id>.md`, `tasks/<id>.md`) is a chronological log; a spec in a
+domain keeps its path (`sprints/account-closure/specs/privacy/account-closure.md`). Agents add
+entries; you add one.
 
 ```markdown
-# account-closure
+# privacy/account-closure
 
 ## Checklist
 - [x] closure request endpoint with strong customer authentication
@@ -174,10 +182,11 @@ Product
   Vision: OK
 
 Specs
-  Total: 4
+  Total: 5
   Draft: 1
-  Approved: 2
+  Approved: 3
   Done: 1
+  Domains: aml 2, payments 1, privacy 2
 
 Bugs
   Total: 2
@@ -190,21 +199,19 @@ Tasks
   Done: 0
 
 Backlog
-  Items: 3
-  [bugs]
-    - erasure-skips-backups (priority 1)
-  [aml]
-    - task kyc-archive-eu-region (priority 1)
-  [privacy]
-    - spec consent-management (priority 2)
+  Items: 4
+  - bug erasure-skips-backups (priority 1)
+  - task kyc-archive-eu-region (priority 1)
+  - spec privacy/consent-management (priority 2)
+  - spec payments/sepa-transfers (priority 3)
 
 Sprints
   account-closure (review, ana): approved 1/2
-    - spec account-closure: awaiting feedback, checklist 5/6
+    - spec privacy/account-closure: awaiting feedback, checklist 5/6
     - bug consent-default-on: approved, checklist 2/2
 
 Done
-  - spec audit-trail (2026-09-01-audit-trail 2026-09-01)
+  - spec aml/audit-trail (2026-09-01-audit-trail 2026-09-01)
 
 Governance
   Pending human review: 1
@@ -213,12 +220,12 @@ Governance
   Warnings: 0
 
 Next
-  * Review and approve specs/transaction-monitoring.md (draft)
-  * Give feedback on spec account-closure in sprints/account-closure/specs/account-closure.md
+  * Review and approve specs/aml/transaction-monitoring.md (draft)
+  * Give feedback on spec privacy/account-closure in sprints/account-closure/specs/privacy/account-closure.md
 ```
 
-`--json` for machines, `--verbose` for warnings, `--strict` to fail CI on errors. No model is
-involved; it only reads files.
+`--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings,
+`--strict` to fail CI on errors. No model is involved; it only reads files.
 
 Errors are the rules that protect your authority and the repository's consistency: an item `done`
 without your `Approved: Yes`; a sprint `closed` with unapproved work; an item in two open sprints; a
@@ -254,8 +261,9 @@ The rest you check against the record. Your verdict goes in the same file as `##
 git records who wrote it and when.
 
 **What a lead sees.** `covener status` across the repository: every open sprint, its owner, each
-item's state and checklist progress, what is waiting for a human, what is inconsistent. It is the
-stand-up, generated from the files.
+item's state and checklist progress, what is waiting for a human, what is inconsistent. A domain
+lead runs `covener status --domain billing` and sees only their part. It is the stand-up, generated
+from the files.
 
 **What the rule can and cannot do.** Nothing physically stops an agent from typing
 `Approved: Yes`. The agent prompts forbid it, `status` makes every approval a visible line that CI
@@ -289,7 +297,7 @@ the flow stays the same.
 | Trivial fix (one place, no design decision) | "Fix this." The engineer fixes it with a test and tells you. No file, no sprint. |
 | Bug worth tracking | "This is the problem." Product registers `bugs/<id>.md` (symptom, reproduction, cause if known, expected behaviour), `open` from the start: a bug is reported, not approved. It waits at the top of the backlog for the next sprint; an active sprint's scope does not change. |
 | Hotfix | Same, but the planner opens a one-bug sprint now (`sprints/hotfix-<slug>/`) and the cycle runs in an hour: regression test, fix, QA, review, your `Approved: Yes`, archive. |
-| Technical work | "Move the KYC archive to an EU region." The planner registers `tasks/<id>.md` (goal, why, scope, done-when, risk and rollback), `open` from the start. Same cycle; QA verifies the done-when and that no spec regressed. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
+| Technical work | "Move the KYC archive to an EU region." The planner registers `tasks/<id>.md` (goal, why, scope, done-when, risk and rollback, and `spec:` when it serves one), `open` from the start. Same cycle; QA verifies the done-when and that no spec regressed. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
 
 Bugs and tasks never touch a spec. If a bug reveals the spec was wrong, or a task changes what the
 product promises, that is a separate change to the spec.
@@ -347,7 +355,7 @@ document contradicts the spec: a contradiction is a `fail`. `covener status` war
 points to a file that does not exist.
 
 ```yaml
-# specs/account-closure.md
+# specs/privacy/account-closure.md
 references: [knowledge/gdpr.md#page-43, knowledge/gdpr.md#page-44, knowledge/amld.md#page-31]
 ```
 
@@ -368,7 +376,7 @@ model. `AGENTS.md` tells the agents when to use which.
 |---|---|---|---|
 | CLI | people, CI | installed | `covener init`, `status`, `knowledge build`, `knowledge ask`, `serve` |
 | Instructions | the model, at session start | `AGENTS.md`, `agents/*.md` | when to use each tool or command |
-| MCP tools | the model, any time | `.mcp.json`, `.cursor/mcp.json`, written by `init` | `status`, `search_knowledge`, `list_knowledge_sources` |
+| MCP tools | the model, any time | `.mcp.json`, `.cursor/mcp.json`, written by `init` | `status` (optionally for one domain), `search_knowledge`, `list_knowledge_sources` |
 | Chat commands | you, as shortcuts | `.claude/commands`, `.cursor/commands` | roadmap |
 
 ```bash
@@ -388,11 +396,11 @@ that folder, so there is exactly one copy of each agent and editing it is editin
 
 | Role | Owns | Never |
 |---|---|---|
-| product | vision, impact analysis, specs, bug intake, evidence in `references:` | code, approving its own specs |
+| product | vision, impact analysis, specs by domain, bug intake, evidence in `references:` | code, approving its own specs |
 | planner | tasks, sprint scope, briefs, feedback requests, closing and archiving | code, writing `## Feedback`, marking `done` without approval |
 | engineer | implementation, fixes (regression test first), tasks, infrastructure | editing specs, expanding scope |
 | qa | tests from acceptance criteria, acceptance verification, regressions | changing application code |
-| reviewer | architecture, security, quality, compliance against citations; also on pull requests | editing anything |
+| reviewer | consistency with the domain, architecture, security, quality, compliance against citations | editing anything |
 
 The prompts follow current Anthropic and OpenAI guidance for frontier coding models: clear objective,
 just-in-time reads, explicit outputs, explicit human gates, no permission-seeking for work already
@@ -420,7 +428,7 @@ tools: [claude, cursor]
 ```bash
 pip install covener            # or: uv tool install covener / pipx install covener
 covener init                   # --tools claude,cursor  --dry-run  --install-agents
-covener status                 # --json  --verbose  --strict
+covener status                 # --domain <name>  --json  --verbose  --strict
 covener knowledge build        # --no-graph  --dry-run        (covener[knowledge] or [oracle])
 covener knowledge ask "..."    # --json
 covener serve                  # MCP over stdio               (covener[mcp])

@@ -1,9 +1,8 @@
 ---
 title: <What is wrong, in one line>
 status: open
-epic: <optional grouping, e.g. payments>
 priority: high
-spec: <optional id of the affected specification>
+spec: <optional id of the affected spec, e.g. billing/refunds; gives the bug its domain>
 references: []   # optional: knowledge/<file>.md#page-N that the expected behaviour comes from
 ---
 

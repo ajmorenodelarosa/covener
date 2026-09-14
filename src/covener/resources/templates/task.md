@@ -1,8 +1,8 @@
 ---
 title: <What has to be done, in one line>
 status: open
-epic: <optional grouping, e.g. platform>
 priority: medium
+spec: <optional id of the spec it serves, e.g. billing/refunds; gives the task its domain>
 references: []   # optional: the spec, bug or knowledge page that motivates it
 ---
 

@@ -52,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         "status", help="deterministic overview: backlog, sprints, issues, what is next"
     )
     status_parser.add_argument("--json", action="store_true", help="machine-readable output")
+    status_parser.add_argument(
+        "--domain",
+        default=None,
+        help="only this domain: specs under specs/<domain>/ and the bugs and tasks that name them",
+    )
     status_parser.add_argument("-v", "--verbose", action="store_true", help="also list warnings")
     status_parser.add_argument(
         "--strict", action="store_true", help="exit with status 1 when errors are found (for CI)"
@@ -93,7 +98,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     try:
         root = _root(args)
         config = load_config(root)
-        _, report, snapshot = compute(root, config)
+        _, report, snapshot = compute(root, config, args.domain)
     except (ConfigError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

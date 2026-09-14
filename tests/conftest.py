@@ -95,13 +95,13 @@ def populated(repo: Path) -> Path:
     - reporting-v1 (active, maria): spec reporting-api in progress
     - backlog: bug wrong-currency (open), spec refunds (approved); spec ideas is draft
     """
-    spec(repo, "stripe-connect", epic="payments", priority="high")
-    spec(repo, "payouts", epic="payments")
-    spec(repo, "reporting-api", epic="reports")
-    spec(repo, "refunds", epic="payments", priority="low")
+    spec(repo, "stripe-connect", priority="high")
+    spec(repo, "payouts")
+    spec(repo, "reporting-api")
+    spec(repo, "refunds", priority="low")
     spec(repo, "ideas", status="draft")
-    bug(repo, "expired-tokens", epic="payments")
-    bug(repo, "wrong-currency", epic="payments", priority="low")
+    bug(repo, "expired-tokens")
+    bug(repo, "wrong-currency", priority="low")
     sprint(repo, "payments-onboarding", "alvaro", "review", ["stripe-connect", "payouts"], ["expired-tokens"])
     sprint(repo, "reporting-v1", "maria", "active", ["reporting-api"])
     write(

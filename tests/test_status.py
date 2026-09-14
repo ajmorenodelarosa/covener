@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from conftest import bug, spec, sprint, write
+from conftest import bug, spec, sprint, task, write
 from covener import config
 from covener.repo import parse_work
 from covener.status import compute, render_json, render_text
@@ -64,9 +64,7 @@ def test_snapshot_backlog_sprints_and_actions(populated: Path) -> None:
         "Covener",
         "Bugs",
         "  Open: 2",
-        "  [bugs]",
-        "    - wrong-currency (priority 3)",
-        "  [payments]",
+        "  - bug wrong-currency (priority 3)",
         "  payments-onboarding (review, alvaro): approved 1/3",
         "    - spec stripe-connect: approved, checklist 2/3",
         "    - bug expired-tokens: awaiting feedback",
@@ -76,18 +74,75 @@ def test_snapshot_backlog_sprints_and_actions(populated: Path) -> None:
     assert json.loads(render_json(snapshot))["backlog"][0]["kind"] == "bug"
 
 
-def test_backlog_orders_bugs_first_then_priority_then_epic(populated: Path) -> None:
-    spec(populated, "b-mid", epic="reports")
-    spec(populated, "a-top", epic="zeta", priority="1")
+def test_backlog_orders_bugs_first_then_specs_and_tasks_by_priority(populated: Path) -> None:
+    spec(populated, "b-mid")
+    spec(populated, "a-top", priority="1")
     bug(populated, "late-bug", priority="3")
+    task(populated, "migrate-postgres", priority="1")
+    task(populated, "upgrade-deps", priority="3")
     ids = [(i.kind, i.id) for i in compute(populated, config.load(populated))[0].backlog()]
     assert ids == [
         ("bug", "late-bug"),
         ("bug", "wrong-currency"),
         ("spec", "a-top"),
+        ("task", "migrate-postgres"),
         ("spec", "b-mid"),
         ("spec", "refunds"),
+        ("task", "upgrade-deps"),
     ]
+    text = render_text(compute(populated, config.load(populated))[2])
+    assert "Tasks" in text.splitlines() and "  - task migrate-postgres (priority 1)" in text.splitlines()
+
+
+def test_tasks_follow_the_same_cycle_and_specs_are_living(populated: Path) -> None:
+    task(populated, "migrate-postgres")
+    sprint(populated, "reporting-v1", "maria", "review", ["reporting-api"], tasks=["migrate-postgres"])
+    write(
+        populated,
+        "sprints/reporting-v1/tasks/migrate-postgres.md",
+        "## Checklist\n- [x] a\n\n## Summary\nx\n\n## Feedback\nApproved: Yes\n",
+    )
+    write(populated, "sprints/reporting-v1/specs/reporting-api.md", "## Summary\nx\n\n## Feedback\nApproved: Yes\n")
+    assert "Close reporting-v1: everything is approved" in actions(populated)
+    task(populated, "migrate-postgres", status="done")
+    assert "task.done-without-approval" not in errors(populated)
+    task(populated, "orphan", status="done")
+    assert "task.done-without-approval" in errors(populated)
+    # A done spec goes back to draft when its requirements change and simply re-enters the cycle.
+    spec(populated, "reporting-api", status="draft")
+    assert "Review and approve specs/reporting-api.md (draft)" in actions(populated)
+
+
+def test_domains_come_from_spec_folders_and_filter_status(repo: Path) -> None:
+    spec(repo, "billing/invoices")
+    spec(repo, "billing/refunds", priority="1")
+    spec(repo, "user-management/signup")
+    spec(repo, "flat-spec")
+    bug(repo, "rounding", spec="billing/invoices")
+    bug(repo, "login-typo", spec="user-management/signup")
+    task(repo, "ledger-migration", spec="specs/billing/refunds.md")
+    bug(repo, "orphan", spec="billing/ghost")
+    sprint(repo, "billing-q4", "ana", "active", ["billing/invoices"], ["rounding"])
+    _, report, whole = compute(repo, config.load(repo))
+    assert whole.domains == {"billing": 2, "user-management": 1}
+    assert "  Domains: billing 2, user-management 1" in render_text(whole).splitlines()
+    assert "bug.unknown-spec" in {i.code for i in report.warnings}
+    _, _, billing = compute(repo, config.load(repo), domain="billing")
+    assert billing.specs["total"] == 2 and billing.domains == {"billing": 2}
+    # The orphan bug names a billing spec that does not exist: it still belongs to billing, and status warns.
+    assert [(e["kind"], e["id"]) for e in billing.backlog] == [
+        ("bug", "orphan"),
+        ("spec", "billing/refunds"),
+        ("task", "ledger-migration"),
+    ]
+    assert [s["id"] for s in billing.sprints] == ["billing-q4"]
+    assert render_text(billing).splitlines()[0] == "Covener (domain: billing)"
+    spec(repo, "user-management/draft-thing", status="draft")
+    _, _, billing = compute(repo, config.load(repo), domain="billing")
+    assert not any("user-management" in action for action in billing.actions)
+    _, _, users = compute(repo, config.load(repo), domain="user-management")
+    assert [(e["kind"], e["id"]) for e in users.backlog] == [("bug", "login-typo"), ("spec", "user-management/signup")]
+    assert users.sprints == []
 
 
 def test_templates_vision_and_readme_are_not_items_or_agents(repo: Path) -> None:
@@ -98,7 +153,7 @@ def test_templates_vision_and_readme_are_not_items_or_agents(repo: Path) -> None
 
 
 def test_tasks_alone_is_not_started_and_path_refs_are_normalised(populated: Path) -> None:
-    spec(populated, "payments/refund-api", epic="payments")
+    spec(populated, "payments/refund-api")
     bug(populated, "ui/typo")
     sprint(
         populated,
@@ -119,7 +174,7 @@ def test_tasks_alone_is_not_started_and_path_refs_are_normalised(populated: Path
 
 
 def test_done_requires_final_human_approval_for_specs_and_bugs(populated: Path) -> None:
-    spec(populated, "payouts", status="done", epic="payments")
+    spec(populated, "payouts", status="done")
     bug(populated, "expired-tokens", status="done")
     assert {"spec.done-without-approval", "bug.done-without-approval"} <= errors(populated)
     write(populated, "sprints/payments-onboarding/specs/payouts.md", "## Summary\nx\n\n## Feedback\nApproved: Yes\n")

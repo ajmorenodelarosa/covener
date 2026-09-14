@@ -33,11 +33,12 @@ def serve(root: Path) -> None:
     oracle, backend = make_oracle(root)  # one Oracle for the server's single event loop
 
     @server.tool()  # type: ignore[untyped-decorator]
-    def status() -> str:
-        """Deterministic state of this Covener repository as JSON: specs, bugs, derived backlog,
-        open sprints with each item's work state, done items, errors, warnings and the next actions
-        for the human or the agents. Same data as `covener status --json`."""
-        _, _, snapshot = compute(root, load_config(root))
+    def status(domain: str | None = None) -> str:
+        """Deterministic state of this Covener repository as JSON: specs (with their domain folders),
+        bugs, tasks, derived backlog, open sprints with each item's work state, done items, errors,
+        warnings and the next actions. Pass `domain` (e.g. "billing") to focus on one domain.
+        Same data as `covener status --json [--domain ...]`."""
+        _, _, snapshot = compute(root, load_config(root), domain)
         return json.dumps(snapshot.to_dict(), ensure_ascii=False)
 
     @server.tool()  # type: ignore[untyped-decorator]

@@ -5,9 +5,9 @@ Everything here is deterministic file parsing. No LLM is involved.
 Layout::
 
     specs/vision.md                 product intent
-    specs/<id>.md                   what the product is        (title, status, epic, priority)
-    bugs/<id>.md                    what is wrong              (title, status, epic, priority)
-    tasks/<id>.md                   work that changes neither  (title, status, epic, priority)
+    specs/[<domain>/]<id>.md        what the product is, grouped by domain folder (title, status, priority)
+    bugs/<id>.md                    what is wrong              (title, status, priority, spec)
+    tasks/<id>.md                   work that changes neither  (title, status, priority, spec)
     sprints/<name>/sprint.md        owner, status, specs: [...], bugs: [...], tasks: [...]
     sprints/<name>/<kind>s/<id>.md  work log of an item in that sprint: checklist, entries, feedback
     sprints/archive/YYYY-MM-DD-<name>/   closed sprints
@@ -101,8 +101,8 @@ class Item:
     id: str  # path under specs/ or bugs/ without .md
     title: str
     status: str
-    epic: str = ""
     priority: int = 2
+    spec: str = ""  # bugs and tasks: id of the spec they relate to (gives them a domain)
     references: list[str] = field(default_factory=list)  # knowledge/<file>.md#page-N, norm ids, URLs
     meta: dict[str, Any] = field(default_factory=dict)
     body: str = ""
@@ -114,6 +114,11 @@ class Item:
     @property
     def label(self) -> str:
         return f"{self.kind} {self.id}"
+
+
+def domain_of_spec_id(spec_id: str) -> str:
+    """The domain of a spec is its first folder under specs/ (``billing/refunds`` -> ``billing``)."""
+    return spec_id.split("/", 1)[0] if "/" in spec_id else ""
 
 
 @dataclass
@@ -184,7 +189,24 @@ class Repository:
         """Ready items not in an open sprint: open bugs first, then specs and tasks by priority."""
         taken = {key for sprint in self.open_sprints() for key in sprint.items}
         available = [i for i in self.items if i.status == READY_STATE[i.kind] and i.key not in taken]
-        return sorted(available, key=lambda i: (i.kind != "bug", i.priority, i.epic, KINDS.index(i.kind), i.id))
+        return sorted(available, key=lambda i: (i.kind != "bug", i.priority, KINDS.index(i.kind), i.id))
+
+    def domain_of(self, key: ItemKey) -> str:
+        """A spec's domain is its folder; a bug or task takes the domain of the spec it names."""
+        kind, item_id = key
+        if kind == "spec":
+            return domain_of_spec_id(item_id)
+        item = self.item_by_key.get(key)
+        return domain_of_spec_id(item.spec) if item and item.spec else ""
+
+    def domains(self) -> dict[str, int]:
+        """Spec count per domain folder, in name order."""
+        counts: dict[str, int] = {}
+        for item in self.of_kind("spec"):
+            domain = domain_of_spec_id(item.id)
+            if domain:
+                counts[domain] = counts.get(domain, 0) + 1
+        return dict(sorted(counts.items()))
 
 
 def _read(path: Path, rel: str, problems: list[ParseProblem]) -> str | None:
@@ -313,8 +335,8 @@ def load_items(root: Path, kind: str, directory: Path, problems: list[ParseProbl
                 id=item_id,
                 title=_as_str(meta.get("title")) or _first_heading(document.body) or item_id,
                 status=_as_str(meta.get("status")),
-                epic=_as_str(meta.get("epic")),
                 priority=_priority(meta.get("priority")),
+                spec=normalise_ref(_as_str(meta.get("spec")), "specs") if kind != "spec" else "",
                 references=_as_list(meta.get("references")),
                 meta=meta,
                 body=document.body,

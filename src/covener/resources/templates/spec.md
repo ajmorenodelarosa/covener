@@ -1,7 +1,6 @@
 ---
 title: <Short title>
 status: draft
-epic: <optional grouping, e.g. payments>
 priority: medium
 references: []   # optional: knowledge/<file>.md#page-N, norm ids, URLs that govern this spec
 ---

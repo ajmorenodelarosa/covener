@@ -77,10 +77,10 @@ def test_existing_agents_md_is_preserved(tmp_path: Path) -> None:
     assert "AGENTS.md" in report.updated
     assert "AGENTS.md" in initialize(tmp_path, tools=["cursor"]).kept
     # A stale block is refreshed in place; unbalanced markers are left alone.
-    write(tmp_path, "AGENTS.md", f"# Mine\n\n{MARK_START}\nold\n{MARK_END}\n\n## After\nkeep me\n")
+    write(tmp_path, "AGENTS.md", f"# Mine\n\n{MARK_START}\nSTALE-BLOCK\n{MARK_END}\n\n## After\nkeep me\n")
     initialize(tmp_path, tools=["cursor"])
     text = (tmp_path / "AGENTS.md").read_text()
-    assert "old" not in text and text.endswith("## After\nkeep me\n")
+    assert "STALE-BLOCK" not in text and text.endswith("## After\nkeep me\n")
     broken = f"# Mine\n\n{MARK_START}\npartial\n\n## Team rules\nnever delete me\n"
     write(tmp_path, "AGENTS.md", broken)
     report = initialize(tmp_path, tools=["cursor"])

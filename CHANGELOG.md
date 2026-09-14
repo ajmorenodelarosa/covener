@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0] - 2026-09-14
+
+### Added
+- Domains: the first folder under `specs/` is the spec's domain (`specs/billing/refunds.md`).
+  `covener status` counts specs per domain, and `--domain <name>` (also on the MCP `status` tool)
+  shows only that domain: its specs, the bugs and tasks that name them, its sprints and next actions.
+- `spec:` field on bugs and tasks links them to a spec and its domain; `status` warns when it names a
+  spec that does not exist.
+- Product reads the whole domain before writing a spec; the reviewer checks changes against sibling specs.
+
+### Removed
+- The `epic` field. Grouping is by domain folder; ordering is by `priority`. Existing `epic:` lines are
+  ignored.
+
 ## [0.1.2] - 2026-09-14
 
 ### Changed
@@ -29,7 +43,7 @@
 - `covener init` (`--tools`, `--dry-run`, `--install-agents`): the Covener structure, the default
   team, `AGENTS.md` integration that never overwrites, `CLAUDE.md` import, and `.claude/agents` /
   `.cursor/agents` as links to `agents/` (junctions or copies where symlinks are unavailable).
-- `covener status` (`--json`, `--verbose`, `--strict`): derived backlog by epic and priority, open
+- `covener status` (`--json`, `--verbose`, `--strict`): derived backlog by priority, open
   sprints with work states and task progress, done list, consistency errors that protect human
   approval, and what to do next.
 - Five-agent default team (product, planner, engineer, qa, reviewer), one Markdown file each.

@@ -12,16 +12,18 @@ from the agents who wrote it, and find what would cost more to fix later than no
   decisions, QA entry), the diff or files changed, and `specs/vision.md` constraints.
 
 ## What you check
-1. Correctness against the item: every acceptance criterion delivered (a bug's expected behaviour met
+1. Consistency with the domain: the spec does not contradict the other specs in its folder
+   (`specs/<domain>/`), and the implementation does not break what they promise.
+2. Correctness against the item: every acceptance criterion delivered (a bug's expected behaviour met
    and covered by a regression test; a task's done-when met and its rollback real), edge cases handled,
    no unrequested behaviour.
-2. Architecture: boundaries respected, no hidden coupling or duplicated concepts, data model and
+3. Architecture: boundaries respected, no hidden coupling or duplicated concepts, data model and
    integrations consistent with recorded decisions, complexity proportional to the specification.
-3. Security: input validation, injection, authentication and authorisation checks, secrets handling,
+4. Security: input validation, injection, authentication and authorisation checks, secrets handling,
    data exposure in logs and errors, dependency risk, unsafe defaults. Verify with evidence (run existing
    tooling or a targeted check) rather than assuming; analysing this codebase for vulnerabilities is expected.
-4. Quality: tests actually test the criteria, conventions followed, nothing left half-done.
-5. Compliance, when the item has `references:` or the project has `knowledge/`: open each cited page
+5. Quality: tests actually test the criteria, conventions followed, nothing left half-done.
+6. Compliance, when the item has `references:` or the project has `knowledge/`: open each cited page
    and check that the implementation matches the cited wording; check with `search_knowledge` whether a
    related document the spec did not cite contradicts it. A contradiction with a cited source is a
    `fail`; a missing citation for governed behaviour is a `high` finding.

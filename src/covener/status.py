@@ -19,9 +19,10 @@ class StatusSnapshot:
     root: str
     vision: str
     specs: dict[str, int]  # status -> count
+    domains: dict[str, int]  # spec count per domain folder
     bugs: dict[str, int]
     tasks: dict[str, int]
-    backlog: list[dict[str, Any]]  # kind, id, epic, priority
+    backlog: list[dict[str, Any]]  # kind, id, domain, priority
     sprints: list[dict[str, Any]]  # open sprints: id, owner, status, items [{kind, id, state, tasks}]
     done: list[dict[str, str]]  # kind, id, sprint, closed
     pending_human_review: int
@@ -30,12 +31,15 @@ class StatusSnapshot:
     warnings: int
     actions: list[str] = field(default_factory=list)
     issues: list[dict[str, str]] = field(default_factory=list)
+    domain: str | None = None  # set when the snapshot is filtered to one domain
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "root": self.root,
+            "domain": self.domain,
             "product": {"vision": self.vision},
             "specs": self.specs,
+            "domains": self.domains,
             "bugs": self.bugs,
             "tasks": self.tasks,
             "backlog": self.backlog,
@@ -52,17 +56,21 @@ class StatusSnapshot:
         }
 
 
-def _counts(repo: Repository, kind: str) -> dict[str, int]:
+def _counts(repo: Repository, kind: str, keep: Any) -> dict[str, int]:
     allowed = states.ITEM_STATES[kind]
-    counter = Counter(i.status if i.status in allowed else "invalid" for i in repo.of_kind(kind))
-    result = {"total": len(repo.of_kind(kind))}
+    items = [i for i in repo.of_kind(kind) if keep(i.key)]
+    counter = Counter(i.status if i.status in allowed else "invalid" for i in items)
+    result = {"total": len(items)}
     result.update({state: counter.get(state, 0) for state in allowed})
     if counter.get("invalid"):
         result["invalid"] = counter["invalid"]
     return result
 
 
-def build_snapshot(repo: Repository, report: Report) -> StatusSnapshot:
+def build_snapshot(repo: Repository, report: Report, domain: str | None = None) -> StatusSnapshot:
+    def keep(key: tuple[str, str]) -> bool:
+        return domain is None or repo.domain_of(key) == domain
+
     vision_state = "OK"
     if not repo.vision_exists:
         vision_state = "MISSING"
@@ -74,6 +82,8 @@ def build_snapshot(repo: Repository, report: Report) -> StatusSnapshot:
     sprints: list[dict[str, Any]] = []
     awaiting = 0
     for sprint in repo.open_sprints():
+        if not any(keep(key) for key in sprint.items) and domain is not None:
+            continue
         entries = [
             {
                 "kind": k,
@@ -82,13 +92,14 @@ def build_snapshot(repo: Repository, report: Report) -> StatusSnapshot:
                 "checklist": list(sprint.checklist.get((k, i), (0, 0))),
             }
             for k, i in sprint.items
+            if keep((k, i))
         ]
         awaiting += sum(1 for e in entries if e["state"] == "awaiting_feedback")
         sprints.append({"id": sprint.id, "owner": sprint.owner, "status": sprint.status, "items": entries})
 
     done: list[dict[str, str]] = []
     for item in repo.items:
-        if item.status == "done":
+        if item.status == "done" and keep(item.key):
             approving = [s for s in repo.sprints_of(item.key) if s.work_state(item.key) == "approved"]
             last = approving[-1] if approving else None
             done.append(
@@ -100,22 +111,34 @@ def build_snapshot(repo: Repository, report: Report) -> StatusSnapshot:
                 }
             )
 
-    specs = _counts(repo, "spec")
+    specs = _counts(repo, "spec", keep)
     return StatusSnapshot(
         root=str(repo.root),
         vision=vision_state,
         specs=specs,
-        bugs=_counts(repo, "bug"),
-        tasks=_counts(repo, "task"),
-        backlog=[{"kind": i.kind, "id": i.id, "epic": i.epic, "priority": i.priority} for i in repo.backlog()],
+        domains={d: n for d, n in repo.domains().items() if domain is None or d == domain},
+        bugs=_counts(repo, "bug", keep),
+        tasks=_counts(repo, "task", keep),
+        backlog=[
+            {"kind": i.kind, "id": i.id, "domain": repo.domain_of(i.key), "priority": i.priority}
+            for i in repo.backlog()
+            if keep(i.key)
+        ],
         sprints=sprints,
         done=done,
         pending_human_review=awaiting,
         pending_spec_approval=specs.get("draft", 0),
         errors=len(report.errors),
         warnings=len(report.warnings),
-        actions=list(report.actions),
+        actions=[
+            action
+            for action in report.actions
+            if domain is None
+            or not report.action_items.get(action)
+            or any(keep(key) for key in report.action_items[action])
+        ],
         issues=[{"level": i.level, "code": i.code, "path": i.path, "message": i.message} for i in report.issues],
+        domain=domain,
     )
 
 
@@ -127,19 +150,17 @@ def _count_lines(title: str, counts: dict[str, int]) -> list[str]:
 
 
 def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
-    lines: list[str] = ["Covener", "", "Product", f"  Vision: {snapshot.vision}", ""]
-    lines += _count_lines("Specs", snapshot.specs) + [""] + _count_lines("Bugs", snapshot.bugs)
+    lines: list[str] = ["Covener" + (f" (domain: {snapshot.domain})" if snapshot.domain else "")]
+    lines += ["", "Product", f"  Vision: {snapshot.vision}", ""]
+    lines += _count_lines("Specs", snapshot.specs)
+    if snapshot.domains:
+        lines.append("  Domains: " + ", ".join(f"{d} {n}" for d, n in snapshot.domains.items()))
+    lines += [""] + _count_lines("Bugs", snapshot.bugs)
     if snapshot.tasks["total"]:
         lines += [""] + _count_lines("Tasks", snapshot.tasks)
     lines += ["", "Backlog", f"  Items: {len(snapshot.backlog)}"]
-    group = None
     for entry in snapshot.backlog:
-        label = "bugs" if entry["kind"] == "bug" else f"{entry['epic'] or 'no epic'}"
-        if label != group:
-            group = label
-            lines.append(f"  [{label}]")
-        kind = "" if entry["kind"] == "bug" else f"{entry['kind']} "
-        lines.append(f"    - {kind}{entry['id']} (priority {entry['priority']})")
+        lines.append(f"  - {entry['kind']} {entry['id']} (priority {entry['priority']})")
     lines += ["", "Sprints"]
     if snapshot.sprints:
         for sprint in snapshot.sprints:
@@ -179,7 +200,7 @@ def render_json(snapshot: StatusSnapshot) -> str:
     return json.dumps(snapshot.to_dict(), indent=2)
 
 
-def compute(root: Path, config: Config) -> tuple[Repository, Report, StatusSnapshot]:
+def compute(root: Path, config: Config, domain: str | None = None) -> tuple[Repository, Report, StatusSnapshot]:
     repo = load_repository(root, config)
     report = validate(repo)
-    return repo, report, build_snapshot(repo, report)
+    return repo, report, build_snapshot(repo, report, domain)

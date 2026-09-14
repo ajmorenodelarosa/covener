@@ -4,9 +4,10 @@ This repository uses Covener: spec-driven development with an AI agent team. The
 source of truth, the conversation is the interface, and humans approve.
 
 - Product vision: `specs/vision.md`
-- Specifications, what the product is: `specs/<id>.md`, one clean living file each
+- Specifications, what the product is: `specs/<domain>/<name>.md`, one clean living file each, grouped
+  by domain folder (`billing/`, `user-management/`); the path is the id
   (`status: draft | approved | done`; editing a done spec sends it back to draft)
-- Bugs, what is wrong: `bugs/<id>.md` (`status: open | done`)
+- Bugs, what is wrong: `bugs/<id>.md` (`status: open | done`; `spec:` names the affected spec)
 - Tasks, work that changes neither what the product is nor fixes a bug (migrations, refactors,
   upgrades, removals): `tasks/<id>.md` (`status: open | done`)
 - Sprints: `sprints/<name>/sprint.md` (owner, scope: `specs:`, `bugs:`, `tasks:`; `active -> review -> closed`)
@@ -14,7 +15,7 @@ source of truth, the conversation is the interface, and humans approve.
   decisions, QA, reviews and human feedback, chronological. One sprint, one owner, one branch.
   Closed sprints live in `sprints/archive/`
 - Backlog: not a file. Open bugs first, then approved specs and open tasks by priority, none in an
-  open sprint; the `status` tool lists it
+  open sprint; the `status` tool lists it, for the whole repository or one domain
 - Project knowledge, when present: `knowledge/` (regulations, contracts, procedures) with
   `knowledge/INDEX.md` and `knowledge/CITATIONS.md`; ask the `search_knowledge` tool when it is
   configured, otherwise read the index. Cite evidence as `knowledge/<file>.md#page-N` in `references:`

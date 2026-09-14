@@ -84,6 +84,6 @@ def test_cli_exit_codes(tmp_path: Path, populated: Path, capsys: pytest.CaptureF
     assert main(["-C", str(broken), "init", "--tools", "cursor"]) == 2
     assert "error:" in capsys.readouterr().err
     assert main(["-C", str(populated), "status", "--strict"]) == 0
-    spec(populated, "payouts", status="done", epic="payments")
+    spec(populated, "payouts", status="done")
     assert main(["-C", str(populated), "status", "--strict"]) == 1
     assert main(["-C", str(populated), "status"]) == 0

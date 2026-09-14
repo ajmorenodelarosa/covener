@@ -27,6 +27,13 @@ class Issue:
 class Report:
     issues: list[Issue] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
+    # The item or sprint items each action is about, so a domain view can keep only its own actions.
+    action_items: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+
+    def act(self, text: str, *items: tuple[str, str]) -> None:
+        self.actions.append(text)
+        if items:
+            self.action_items.setdefault(text, []).extend(items)
 
     def error(self, code: str, path: str, message: str) -> None:
         self.issues.append(Issue("error", code, path, message))
@@ -85,7 +92,7 @@ def _check_items(repo: Repository, report: Report) -> None:
             )
             continue
         if item.kind == "spec" and item.status == "draft":
-            report.actions.append(f"Review and approve {item.path} (draft)")
+            report.act(f"Review and approve {item.path} (draft)", item.key)
         if item.status == states.READY_STATE[item.kind] and any(m in item.body for m in PLACEHOLDER_MARKERS):
             report.warning(f"{item.kind}.placeholder", item.path, f"{item.kind} still contains template placeholders")
         open_ = repo.sprints_of(item.key, open_only=True)
@@ -95,6 +102,8 @@ def _check_items(repo: Repository, report: Report) -> None:
                 item.path,
                 "listed in more than one open sprint: " + ", ".join(s.id for s in open_),
             )
+        if item.spec and ("spec", item.spec) not in repo.item_by_key:
+            report.warning(f"{item.kind}.unknown-spec", item.path, f"spec {item.spec!r} does not exist")
         for reference in item.references:
             target = reference.split("#", 1)[0]
             if "/" in target and not target.startswith(("http://", "https://")) and not (repo.root / target).is_file():
@@ -137,7 +146,7 @@ def _check_sprints(repo: Repository, report: Report) -> None:
         if sprint.archived and sprint.status != "closed":
             report.error("sprint.archived-open", where, f"sprint is in the archive but its status is {sprint.status!r}")
         elif sprint.status == "closed" and not sprint.archived:
-            report.actions.append(f"Move {sprint.path} to sprints/archive/<YYYY-MM-DD>-{sprint.id} (closed)")
+            report.act(f"Move {sprint.path} to sprints/archive/<YYYY-MM-DD>-{sprint.id} (closed)", *sprint.items)
         if not sprint.items:
             report.warning("sprint.empty", where, "sprint lists no specs, bugs or tasks")
         for key in sprint.items:
@@ -174,15 +183,15 @@ def _check_sprints(repo: Repository, report: Report) -> None:
                     f"{item.path} is {item.status!r}; a sprint only takes {ready} {kind}s",
                 )
             if state == "awaiting_feedback":
-                report.actions.append(f"Give feedback on {kind} {item_id} in {work_file}")
+                report.act(f"Give feedback on {kind} {item_id} in {work_file}", key)
             elif state == "changes_requested":
-                report.actions.append(f"Agents: rework {kind} {item_id} from the feedback in {work_file}")
+                report.act(f"Agents: rework {kind} {item_id} from the feedback in {work_file}", key)
             elif sprint.status == "review" and state in {"not_started", "in_progress"}:
                 report.warning(
                     "sprint.review-without-work", where, f"sprint is in review but {kind} {item_id} has no work"
                 )
         if sprint.status == "review" and sprint.items and all(sprint.work_state(k) == "approved" for k in sprint.items):
-            report.actions.append(f"Close {sprint.id}: everything is approved")
+            report.act(f"Close {sprint.id}: everything is approved", *sprint.items)
         if sprint.status != "closed":
             for key in sprint.work:
                 if key not in sprint.items:
