@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.1] - 2026-09-14
+
+### Changed
+- README rewritten around governance, with a regulated example (bank account closure under GDPR and
+  EU anti-money-laundering retention rules).
+- `covener status` shows "checklist n/m" for work log progress.
+
+### Fixed
+- Citation graph recognises English references such as "Article 40 of Directive (EU) 2015/849".
+- Link tests pass on Windows (symlinks or junctions).
+
 ## [0.1.0] - 2026-09-12
 
 ### Added
