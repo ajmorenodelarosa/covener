@@ -25,6 +25,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   deviates, and what has to be done never mix and never grow.
 - **Sprints hold the work**: one work log per item with a checklist, the agents' summaries,
   decisions and reviews, and your feedback. Closed sprints are archived; nothing is stored twice.
+- **Built for teams, reviewed at agent speed.** Every developer runs their own sprint with their own
+  agents, in parallel, without colliding. Nobody reads thousands of generated lines: you review the
+  work log and the reviewer's findings, and open the diff only where they point.
 - **Approval is a rule in a file.** An item is `done` only when a human wrote `Approved: Yes` in its
   work log. `covener status --strict` fails CI when that rule, or any consistency rule, is broken.
 - **Knowledge is evidence.** Regulations, contracts and procedures in `knowledge/` become a
@@ -48,9 +51,14 @@ belongs to**, so a new session starts from the record instead of from zero. **An
 when a person wrote `Approved: Yes`**, and `covener status --strict` fails CI otherwise, which makes
 the approval something an auditor can rely on rather than a line in a prompt. **Requirements that
 come from regulations cite their evidence page by page**, backed by a citation graph built without a
-model, so nothing about a law can be hallucinated. It does this with two files per item, five roles
-with hard boundaries, sprints that never collide across a team, and a layout you can explain in a
-minute.
+model, so nothing about a law can be hallucinated.
+
+And it scales to a team. When every developer drives agents that write more code in a day than a
+person can read in a week, the pull request stops being a review tool. Covener moves the review to
+where the meaning is: a work log that says what was built, what was decided, what QA proved and what
+the independent reviewer flagged, next to the requirement it serves. A lead reviews a whole sprint in
+minutes and spends their attention on the three lines that matter. All of it with two files per
+item, five roles with hard boundaries, and a layout you can explain in a minute.
 
 ## How it works
 
@@ -220,19 +228,52 @@ sprints are history: only the approval rule applies to them, so a spec that late
 breaks CI. A second open sprint for the same owner is a warning, not an error: that is what a
 hotfix looks like.
 
-## Working in a team
+## Teams and review
 
-One sprint, one owner, one branch, one pull request. Git isolates parallel work; Covener makes the
-rules checkable.
+Agents write code faster than people can read it. A sprint of three developers with agents easily
+produces tens of thousands of changed lines; reviewing that line by line is theatre. Covener makes
+the unit of review the work, not the diff.
 
-- Name sprints by what they deliver (`account-closure`), never by number: sequential numbers
-  collide the moment two people branch.
+**What a reviewer reads.** For each item in a sprint, one file: the checklist (what was done), the
+summary (where), the decisions (why), the QA entry (which test proves which acceptance criterion),
+and the reviewer agent's findings ordered by severity with file and line. Critical and high findings
+are where you open the code. Everything else you approve from the record, and your approval is in
+the same file, dated, for anyone who asks later.
+
+**What a lead sees.** `covener status` across the repository: every open sprint, its owner, each
+item's state and checklist progress, what is waiting for a human, and what is inconsistent. It is
+the stand-up, generated from the files.
+
+**How a team works in parallel.**
+
+- One sprint, one owner, one branch, one pull request. Git isolates parallel work; Covener makes the
+  rules checkable.
+- Name sprints by what they deliver (`account-closure`), never by number: sequential numbers collide
+  the moment two people branch.
 - The owner is a field in `sprint.md`. One open sprint per owner is the norm; an item is in at most
   one open sprint. `covener status` flags both after a merge.
-- Specs, bugs and tasks are one file each, so two people rarely touch the same one. Approval is in
-  the file.
+- Specs, bugs and tasks are one file each, so two people rarely touch the same one. There is no
+  shared backlog file to fight over.
 - History is the archive of closed sprints plus `status: done` in the item. Archive after the pull
-  request merges. Everything is committed; nothing is personal or ignored.
+  request merges. Everything is committed.
+
+**The reviewer in CI.** The same reviewer agent that works in the IDE can review a pull request
+headlessly and publish its findings, so the human reviewer starts from a severity-ordered summary
+instead of a diff:
+
+```yaml
+# .github/workflows/review.yml (excerpt)
+- run: pip install covener && covener status --strict
+- run: npm install -g @anthropic-ai/claude-code
+- env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  run: |
+    claude -p --agent reviewer --output-format text \
+      --allowedTools "Read" "Bash(git diff *)" "Bash(git log *)" \
+      "Review this pull request against the work logs of the sprint it closes. \
+       Report findings by severity with file and line, and compliance against cited references." \
+      >> "$GITHUB_STEP_SUMMARY"
+```
 
 ## Bugs, tasks and hotfixes
 
@@ -426,7 +467,8 @@ exactly those four things.
 
 - Codex and Windsurf link adapters; `skills/` linked like `agents/`.
 - `/covener` chat commands for approving and requesting changes from the conversation.
-- A reviewer GitHub Action that posts the `## Review` entry on pull requests.
+- A packaged reviewer GitHub Action that posts the findings as a pull request comment and a sprint
+  review digest for leads.
 - Knowledge Oracle: DOCX and HTML sources, more citation jurisdictions, compliance reports per spec.
 
 ## Contributing

@@ -4,7 +4,8 @@
 
 ### Changed
 - README rewritten around governance, with a regulated example (bank account closure under GDPR and
-  EU anti-money-laundering retention rules).
+  EU anti-money-laundering retention rules), and a section on team review: review the work log and the
+  reviewer's findings instead of every generated line, including the reviewer agent in CI.
 - `covener status` shows "checklist n/m" for work log progress.
 
 ### Fixed
