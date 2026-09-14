@@ -35,7 +35,7 @@ PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 CONSTITUTION_RE = re.compile(r"\bConstituci[oó]n\s+Pol[ií]tica\b", re.I)
-ARTICLE_RE = re.compile(r"\b(?:art[ií]culo|art\.)\s*(?P<number>\d{1,4}[A-Za-z]?)", re.I)
+ARTICLE_RE = re.compile(r"\b(?:art[ií]culo|article|art\.)\s*(?P<number>\d{1,4}[A-Za-z]?)", re.I)
 
 
 def normalise(kind: str, number: str, year: str | None) -> str:

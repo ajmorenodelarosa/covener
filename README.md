@@ -59,18 +59,23 @@ cd my-project
 covener init          # links the agents into Claude Code and Cursor; never overwrites your files
 ```
 
-Then talk to the team in your IDE:
+Then talk to the team in your IDE. Take a bank:
 
-> I want customers to connect their Stripe account and receive payments.
+> Customers must be able to close their account and have their personal data erased.
+
+A naive agent deletes the customer. That breaks the law: GDPR grants the right to erasure, but EU
+anti-money-laundering rules require the bank to keep identity and transaction records for five years
+after the relationship ends, and GDPR itself exempts data kept to meet a legal obligation. This is
+the kind of requirement Covener is built for.
 
 | Step | Role | What happens in the repository |
 |---|---|---|
-| 1 | product | Reads `specs/vision.md` and the existing specs, reports the impact, drafts `specs/stripe-connect.md` with acceptance criteria and, when a regulation applies, `references:` to the evidence. You set `status: approved`. |
-| 2 | planner | Opens `sprints/payments-onboarding/` with the spec (and open bugs first) and writes the checklist in the work log. |
-| 3 | engineer, qa, reviewer | Implement, test against the criteria, review architecture, security and compliance. Each writes its entry in the work log. |
+| 1 | product | Asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/account-closure.md`: erase marketing, profiling and app data at once; keep KYC and transaction records for five years with restricted access, then erase them. Every criterion cites its article in `references:`. You set `status: approved`. |
+| 2 | planner | Opens `sprints/account-closure/` with the spec (open bugs first) and writes the checklist in the work log. |
+| 3 | engineer, qa, reviewer | Implement, test each criterion, and review architecture, security and compliance: the reviewer opens every cited page and checks the code against its wording. |
 | 4 | planner | Sets the sprint to `review` and tells you what to evaluate. |
 | 5 | you | `Approved: No` with what to change, or `Approved: Yes`. |
-| 6 | planner | Reworks until you approve, marks the spec `done`, archives the sprint. |
+| 6 | planner | Reworks until you approve, marks the spec `done`, archives the sprint. Six months later an auditor asks why a closed customer's passport scan still exists: the spec, the citations, the review and your approval are all in the repository. |
 
 ```bash
 covener status        # backlog, sprints, inconsistencies, what to do next
@@ -92,7 +97,7 @@ AGENTS.md                           a small block every coding agent reads (CLAU
 .covener/config.yaml                role to agent mapping and tools; nothing else
 ```
 
-Domain folders are fine: `specs/payments/stripe-connect.md` has the id `payments/stripe-connect`.
+Domain folders are fine: `specs/privacy/account-closure.md` has the id `privacy/account-closure`.
 
 **Which folder?** If in a year someone must read it to know what the product is, it is a spec. If
 it describes something that is wrong today, it is a bug. If they only need to know it was done, it
@@ -110,33 +115,40 @@ Reprioritising is a one-line change in one file, so a team never fights over a l
 add entries; you add one.
 
 ```markdown
-# stripe-connect
+# account-closure
 
 ## Checklist
-- [x] onboarding endpoint
-- [x] token refresh
-- [ ] operator docs
+- [x] closure request endpoint with strong customer authentication
+- [x] immediate erasure of marketing, profiling and app data
+- [x] KYC and transaction records moved to restricted retention with a five-year expiry
+- [x] scheduled erasure job at retention expiry
+- [x] erasure notice to processors (GDPR Art. 19)
+- [ ] customer-facing explanation of what is retained and why
 
 ## Summary
-Implemented in payments/onboarding.py; 6 tests in tests/test_onboarding.py.
+Closure flow in accounts/closure.py; retention store in compliance/retention.py; nightly expiry job.
+14 tests in tests/test_closure.py, one per acceptance criterion.
 
 ## Decisions
-- 2026-09-12 Store the Stripe account id, not the token; tokens are fetched on demand.
+- 2026-09-14 Retention clock starts at the closure date, not the last transaction (AMLD Art. 40(1)).
+- 2026-09-14 Retained records are readable only by the compliance role; every read is audited.
 
 ## QA
 Verdict: pass
-- AC1 test_onboarding_starts, AC2 test_reconnect_expired, AC3 manual check on staging.
+- AC1 test_marketing_data_erased_immediately, AC2 test_kyc_retained_five_years,
+  AC3 test_retained_records_erased_at_expiry, AC4 test_processors_notified.
 
 ## Review
 Verdict: pass with notes
-- medium: retry on 429 missing in payments/client.py:41; add backoff.
+- high: compliance/retention.py:88 lets the support role read retained records; restrict to compliance.
+- Compliance: criteria match knowledge/gdpr.md#page-43 and knowledge/amld.md#page-31.
 
 ## Feedback
 Approved: No
-Also handle a revoked authorization, not only an expired one.
+Restrict retained records as the review says, and show customers what is kept and until when.
 
 ## Rework
-Added revocation handling and a test.
+Support role removed from retention access; retention summary added to the closure confirmation.
 
 ## Feedback
 Approved: Yes
@@ -172,19 +184,19 @@ Tasks
 Backlog
   Items: 3
   [bugs]
-    - wrong-currency (priority 1)
-  [platform]
-    - task migrate-postgres (priority 1)
-  [payments]
-    - spec refunds (priority 2)
+    - erasure-skips-backups (priority 1)
+  [aml]
+    - task kyc-archive-eu-region (priority 1)
+  [privacy]
+    - spec consent-management (priority 2)
 
 Sprints
-  payments-onboarding (review, alvaro): approved 1/2
-    - spec stripe-connect: awaiting feedback, checklist 5/6
-    - bug expired-tokens: approved, checklist 2/2
+  account-closure (review, ana): approved 1/2
+    - spec account-closure: awaiting feedback, checklist 5/6
+    - bug consent-default-on: approved, checklist 2/2
 
 Done
-  - spec reporting-api (2026-09-10-reporting-v1 2026-09-10)
+  - spec audit-trail (2026-09-01-audit-trail 2026-09-01)
 
 Governance
   Pending human review: 1
@@ -193,8 +205,8 @@ Governance
   Warnings: 0
 
 Next
-  * Review and approve specs/ideas.md (draft)
-  * Give feedback on spec stripe-connect in sprints/payments-onboarding/specs/stripe-connect.md
+  * Review and approve specs/transaction-monitoring.md (draft)
+  * Give feedback on spec account-closure in sprints/account-closure/specs/account-closure.md
 ```
 
 `--json` for machines, `--verbose` for warnings, `--strict` to fail CI on errors. No model is
@@ -213,7 +225,7 @@ hotfix looks like.
 One sprint, one owner, one branch, one pull request. Git isolates parallel work; Covener makes the
 rules checkable.
 
-- Name sprints by what they deliver (`payments-onboarding`), never by number: sequential numbers
+- Name sprints by what they deliver (`account-closure`), never by number: sequential numbers
   collide the moment two people branch.
 - The owner is a field in `sprint.md`. One open sprint per owner is the norm; an item is in at most
   one open sprint. `covener status` flags both after a merge.
@@ -233,7 +245,7 @@ the flow stays the same.
 | Trivial fix (one place, no design decision) | "Fix this." The engineer fixes it with a test and tells you. No file, no sprint. |
 | Bug worth tracking | "This is the problem." Product registers `bugs/<id>.md` (symptom, reproduction, cause if known, expected behaviour), `open` from the start: a bug is reported, not approved. It waits at the top of the backlog for the next sprint; an active sprint's scope does not change. |
 | Hotfix | Same, but the planner opens a one-bug sprint now (`sprints/hotfix-<slug>/`) and the cycle runs in an hour: regression test, fix, QA, review, your `Approved: Yes`, archive. |
-| Technical work | "Migrate to Postgres." The planner registers `tasks/<id>.md` (goal, why, scope, done-when, risk and rollback), `open` from the start. Same cycle; QA verifies the done-when and that no spec regressed. If the work leaves a durable requirement ("data lives in Postgres"), it is a spec instead. |
+| Technical work | "Move the KYC archive to an EU region." The planner registers `tasks/<id>.md` (goal, why, scope, done-when, risk and rollback), `open` from the start. Same cycle; QA verifies the done-when and that no spec regressed. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
 
 Bugs and tasks never touch a spec. If a bug reveals the spec was wrong, or a task changes what the
 product promises, that is a separate change to the spec.
@@ -262,20 +274,25 @@ nano-vectordb, no server). One tool, `search_knowledge`, returns answer, relatio
 `knowledge/<file>.md#page-N` references. Without evidence it says so instead of guessing.
 
 ```bash
-covener knowledge ask "What must happen when a customer asks us to delete their data?"
+covener knowledge ask "A customer closes their account and asks us to delete everything. What must we erase and what must we keep?"
 ```
 
 ```
-Personal data must be erased without undue delay when the data subject withdraws consent or the
-data is no longer necessary [gdpr.md#page-43]; the controller must inform recipients of the erasure
-[gdpr.md#page-44].
+Erase personal data without undue delay once it is no longer necessary [gdpr.md#page-43], except
+data you must keep to comply with a legal obligation [gdpr.md#page-44]. Customer due diligence
+documents and transaction records must be retained for five years after the end of the business
+relationship [amld.md#page-31] and deleted afterwards [amld.md#page-31]. Recipients of the data
+must be told about the erasure [gdpr.md#page-45].
 
 Evidence
-  - knowledge/gdpr.md#page-43: Article 17 ... the controller shall have the obligation to erase ...
-  - knowledge/gdpr.md#page-44: Article 19 ... communicate any rectification or erasure ...
+  - knowledge/gdpr.md#page-43: Article 17(1) ... the controller shall have the obligation to erase ...
+  - knowledge/gdpr.md#page-44: Article 17(3)(b) ... for compliance with a legal obligation ...
+  - knowledge/amld.md#page-31: Article 40 ... for a period of five years after the end of the business relationship ...
+  - knowledge/gdpr.md#page-45: Article 19 ... communicate any rectification or erasure ...
 Relations
-  - gdpr -> data-retention-policy (citation)
   - data-retention-policy -> gdpr (citation)
+  - data-retention-policy -> amld (citation)
+  - personal data -> customer due diligence (graph)
 ```
 
 **How the team uses it.** Product asks the Oracle before drafting a governed spec and cites the
@@ -285,8 +302,8 @@ document contradicts the spec: a contradiction is a `fail`. `covener status` war
 points to a file that does not exist.
 
 ```yaml
-# specs/data-erasure.md
-references: [knowledge/gdpr.md#page-43, knowledge/data-retention-policy.md#page-2]
+# specs/account-closure.md
+references: [knowledge/gdpr.md#page-43, knowledge/gdpr.md#page-44, knowledge/amld.md#page-31]
 ```
 
 Models: `claude-sonnet-5` for extraction and answers, `voyage-4-large` for retrieval, both

@@ -80,6 +80,11 @@ def test_citations_are_extracted_normalised_and_resolved() -> None:
     assert ("Sentencia C-123 de 2015", 2) in targets
     assert ("Resolución 0312 de 2019", 2) in targets
     assert "12" in {c.article for c in found if c.target == "Ley 1437 de 2011"}
+    english = extract_citations(
+        "## Page 3\nKept under Article 40 of Directive (EU) 2015/849, erased under Regulation (EU) 2016/679."
+    )
+    assert ("Directive 2015/849", 3, "40") in {(c.target, c.page, c.article) for c in english}
+    assert "Regulation 2016/679" in {c.target for c in english}
 
 
 def test_build_converts_pdfs_incrementally_and_writes_index_and_graph(tmp_path: Path) -> None:
