@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "covener"
 version = "0.1.0"
-description = "Covener: spec-driven development for AI agent teams. The repository is the truth, you approve."
+description = "Spec-driven development for AI agent teams. Governance for regulated domains and large projects: traceable, auditable, human-approved."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "ajmorenodelarosa" }]
-keywords = ["covener", "spec-driven-development", "ai-agents", "claude-code", "cursor", "agents-md", "methodology"]
+keywords = ["spec-driven-development", "ai-agents", "claude-code", "cursor", "agents-md", "mcp", "knowledge-graph", "graphrag", "governance", "compliance", "llm"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
