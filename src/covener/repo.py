@@ -129,7 +129,7 @@ class Sprint:
     meta: dict[str, Any] = field(default_factory=dict)
     work: dict[ItemKey, list[WorkEntry]] = field(default_factory=dict)
     work_files: dict[ItemKey, str] = field(default_factory=dict)
-    tasks: dict[ItemKey, tuple[int, int]] = field(default_factory=dict)  # (done, total)
+    checklist: dict[ItemKey, tuple[int, int]] = field(default_factory=dict)  # (done, total) steps
     archived: bool = False
 
     def work_file(self, key: ItemKey) -> str:
@@ -381,7 +381,7 @@ def load_sprints(root: Path, config: Config, problems: list[ParseProblem]) -> li
                 if text is not None:
                     sprint.work[key] = parse_work(text)
                     sprint.work_files[key] = _rel(root, work_file)
-                    sprint.tasks[key] = count_tasks(text)
+                    sprint.checklist[key] = count_tasks(text)
         sprints.append(sprint)
     sprints.sort(key=lambda s: (s.opened or "", s.id))
     return sprints

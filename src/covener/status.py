@@ -75,7 +75,12 @@ def build_snapshot(repo: Repository, report: Report) -> StatusSnapshot:
     awaiting = 0
     for sprint in repo.open_sprints():
         entries = [
-            {"kind": k, "id": i, "state": sprint.work_state((k, i)), "tasks": list(sprint.tasks.get((k, i), (0, 0)))}
+            {
+                "kind": k,
+                "id": i,
+                "state": sprint.work_state((k, i)),
+                "checklist": list(sprint.checklist.get((k, i), (0, 0))),
+            }
             for k, i in sprint.items
         ]
         awaiting += sum(1 for e in entries if e["state"] == "awaiting_feedback")
@@ -142,9 +147,9 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
             owner = f", {sprint['owner']}" if sprint["owner"] else ""
             lines.append(f"  {sprint['id']} ({sprint['status']}{owner}): approved {approved}/{len(sprint['items'])}")
             for entry in sprint["items"]:
-                done_n, total = entry["tasks"]
-                tasks = f", tasks {done_n}/{total}" if total else ""
-                lines.append(f"    - {entry['kind']} {entry['id']}: {entry['state'].replace('_', ' ')}{tasks}")
+                done_n, total = entry["checklist"]
+                progress = f", checklist {done_n}/{total}" if total else ""
+                lines.append(f"    - {entry['kind']} {entry['id']}: {entry['state'].replace('_', ' ')}{progress}")
     else:
         lines.append("  Open: none")
     if snapshot.done:

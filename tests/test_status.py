@@ -68,7 +68,7 @@ def test_snapshot_backlog_sprints_and_actions(populated: Path) -> None:
         "    - wrong-currency (priority 3)",
         "  [payments]",
         "  payments-onboarding (review, alvaro): approved 1/3",
-        "    - spec stripe-connect: approved, tasks 2/3",
+        "    - spec stripe-connect: approved, checklist 2/3",
         "    - bug expired-tokens: awaiting feedback",
         "Next",
     ):
