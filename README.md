@@ -35,20 +35,22 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
 
 ## Why Covener
 
-Spec-driven development already works: write the spec, let the agent implement it. What breaks at
-scale, and in any environment with an auditor, is everything around the spec.
+Spec-driven development tools stop at the spec. spec-kit generates a pile of Markdown per feature
+and numbers features so that two developers branching on the same day collide. Kiro writes
+requirements, design and tasks, then treats them as launch documents that drift as soon as code
+changes. BMAD answers the problem with a dozen personas and the process overhead that comes with
+them. OpenSpec tracks changes well, but a spec is still just text an agent can declare done. None of
+them keeps the decisions made while building, none makes human approval something a machine can
+verify, and none can tell you which article of which regulation a requirement comes from.
 
-| The problem | What the field does | What Covener does |
-|---|---|---|
-| Agents forget between sessions; decisions live in chat | Constitution or steering files (spec-kit, Kiro) that describe conventions, not history | Every decision, review and human comment is logged in the sprint next to the item it belongs to. A new session starts from the log |
-| "Done" means whatever the agent says | A review step in a prompt | `done` requires `Approved: Yes` written by a person; a script enforces it, so CI and auditors can rely on it |
-| Numbered features and shared backlogs collide the moment two people branch | spec-kit numbers features; BMAD adds process; OpenSpec gets it right with one change per branch | OpenSpec's model applied to the whole repository: named sprints, one owner each, a derived backlog nobody edits, git does the isolation |
-| Requirements from regulations get paraphrased into code | Nothing; at best a PDF pasted into context | A knowledge layer with page-anchored evidence and a citation graph built without a model, so nothing about a regulation can be hallucinated |
-| Frameworks bury you in generated Markdown and roles | 8+ files per feature, 12+ agents | 2 files per item, 5 roles with explicit boundaries, and a folder layout you can explain in a minute |
-
-Covener keeps what the field agreed on (one spec per feature, checklists, work separate from specs,
-archive by date, `AGENTS.md`) and adds the three things nobody enforces: living specs with history,
-human approval as a checkable rule, and evidence for domain knowledge.
+Covener does all three. **Every decision, review and human comment is written next to the item it
+belongs to**, so a new session starts from the record instead of from zero. **An item is done only
+when a person wrote `Approved: Yes`**, and `covener status --strict` fails CI otherwise, which makes
+the approval something an auditor can rely on rather than a line in a prompt. **Requirements that
+come from regulations cite their evidence page by page**, backed by a citation graph built without a
+model, so nothing about a law can be hallucinated. It does this with two files per item, five roles
+with hard boundaries, sprints that never collide across a team, and a layout you can explain in a
+minute.
 
 ## How it works
 
@@ -375,20 +377,6 @@ and get per-agent links; a legacy `.cursorrules` is reported.
 ```yaml
 - run: pip install covener && covener status --strict
 ```
-
-## How it compares
-
-| | Covener | spec-kit | OpenSpec | Kiro | BMAD |
-|---|---|---|---|---|---|
-| Unit of work | sprint (named) | numbered feature + branch | change (named) + branch | spec + worktree | story |
-| Human approval | file rule, CI-checkable | review step | review step | review step | review step |
-| Team collisions | none by design | numbering collides | none by design | git | manual |
-| Living specs | yes | no | yes | no | no |
-| Bugs and tasks | own files, same flow | feature | change | spec | story |
-| Domain knowledge | citation graph + evidence, MCP | constitution file | none | steering files | none |
-| Roles | 5, extensible | 1 | 1 | 1 | 12+ |
-| Files per feature | 2 | 8+ | 4 | 3 | many |
-| Commands to learn | 2 (+1 knowledge, +1 serve) | 5+ | 4+ | IDE | many |
 
 ## What Covener does not do
 
