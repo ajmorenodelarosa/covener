@@ -1,11 +1,40 @@
 from __future__ import annotations
 
+import os
 import textwrap
 from pathlib import Path
 
 import pytest
 
 from covener.init import initialize
+
+
+def _can_symlink() -> bool:
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.symlink(os.path.join(tmp, "missing"), os.path.join(tmp, "link"))
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+CAN_SYMLINK = _can_symlink()
+needs_symlinks = pytest.mark.skipif(not CAN_SYMLINK, reason="file symlinks are not permitted on this machine")
+
+
+def links_to(link: Path, target: Path) -> bool:
+    """True for a symlink or a Windows junction that resolves to ``target``."""
+    return link.exists() and link.resolve() == target.resolve() and link != target
+
+
+def remove_link(link: Path) -> None:
+    """Remove a link; directory links (symlink or junction) need rmdir on Windows."""
+    if os.name == "nt" and link.is_dir():
+        os.rmdir(link)
+    else:
+        link.unlink()
 
 
 def write(root: Path, relative: str, content: str) -> Path:

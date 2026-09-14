@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import write
+from conftest import links_to, needs_symlinks, remove_link, write
 from covener import config
 from covener.init import MARK_END, MARK_START, initialize
 from covener.roles import DEFAULT_AGENT_NAMES
@@ -33,7 +33,9 @@ def test_fresh_init_creates_structure_and_links(tmp_path: Path) -> None:
         assert (tmp_path / "agents" / f"{name}.md").is_file()
     for tool in (".claude", ".cursor"):
         link = tmp_path / tool / "agents"
-        assert link.is_symlink() and os.readlink(link).replace("\\", "/") == "../agents"
+        assert links_to(link, tmp_path / "agents")
+        if link.is_symlink():  # relative, so clones and moves keep working
+            assert os.readlink(link).replace("\\", "/") == "../agents"
     assert "AGENTS.md" in report.created and not report.updated
     # Idempotent.
     again = initialize(tmp_path, tools=["claude", "cursor"])
@@ -95,12 +97,13 @@ def test_existing_claude_md_gets_one_import(tmp_path: Path) -> None:
     assert "CLAUDE.md" in initialize(tmp_path, tools=["claude"]).kept
 
 
+@needs_symlinks
 def test_existing_tool_directory_gets_per_file_links(tmp_path: Path) -> None:
     write(tmp_path, ".claude/agents/qa.md", "---\nname: qa\ndescription: mine\n---\nMy own QA agent.\n")
     report = initialize(tmp_path, tools=["claude"])
     agents = tmp_path / ".claude" / "agents"
     assert agents.is_dir() and not agents.is_symlink()
-    assert (agents / "engineer.md").is_symlink()
+    assert links_to(agents / "engineer.md", tmp_path / "agents" / "engineer.md")
     assert (agents / "qa.md").read_text().endswith("My own QA agent.\n")
     assert ".claude/agents/qa.md" in report.skipped
     # Renaming an agent removes the dangling link.
@@ -111,9 +114,10 @@ def test_existing_tool_directory_gets_per_file_links(tmp_path: Path) -> None:
     target = tmp_path / "agents" / "code-reviewer.md"
     target.write_text(source.read_text().replace("name: reviewer\n", "name: code-reviewer\n", 1))
     source.unlink()
-    os.symlink("../../elsewhere/foo.md", agents / "foo.md")  # dangling, not ours: kept
+    os.symlink(os.path.join("..", "..", "elsewhere", "foo.md"), agents / "foo.md")  # dangling, not ours: kept
     report = initialize(tmp_path)
-    assert ".claude/agents/reviewer.md" in report.removed and (agents / "code-reviewer.md").is_symlink()
+    assert ".claude/agents/reviewer.md" in report.removed
+    assert links_to(agents / "code-reviewer.md", tmp_path / "agents" / "code-reviewer.md")
     assert (agents / "foo.md").is_symlink()
 
 
@@ -122,6 +126,7 @@ def test_symlink_failure_falls_back_to_copies(tmp_path: Path, monkeypatch: pytes
         raise OSError("symlinks not allowed")
 
     monkeypatch.setattr(os, "symlink", refuse)
+    monkeypatch.setattr("covener.adapters.base.sys.platform", "linux")  # no junction fallback either
     report = initialize(tmp_path, tools=["claude"])
     copy = tmp_path / ".claude" / "agents" / "qa.md"
     assert copy.is_file() and not copy.is_symlink()
@@ -131,10 +136,10 @@ def test_symlink_failure_falls_back_to_copies(tmp_path: Path, monkeypatch: pytes
 def test_git_symlink_placeholder_is_repaired(tmp_path: Path) -> None:
     initialize(tmp_path, tools=["claude"])
     link = tmp_path / ".claude" / "agents"
-    link.unlink()
+    remove_link(link)
     link.write_text("../agents")  # what git writes with core.symlinks=false
     report = initialize(tmp_path)
-    assert link.is_symlink() and any("core.symlinks" in note for note in report.notes)
+    assert links_to(link, tmp_path / "agents") and any("core.symlinks" in note for note in report.notes)
 
 
 def test_roles_rename_disable_alias_and_deleted_agents(tmp_path: Path) -> None:

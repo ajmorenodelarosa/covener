@@ -25,3 +25,9 @@ Tests live in `tests/` and are kept minimal: one behaviour, one test. Please add
 - Describe the behaviour, not the diff.
 - Update `README.md` if the user-visible behaviour changes.
 - Keep `CHANGELOG.md` current.
+
+## Releasing
+
+1. Bump `version` in `pyproject.toml` and `__version__` in `src/covener/__init__.py`; update `CHANGELOG.md`.
+2. `git commit -am "Release vX.Y.Z" && git tag vX.Y.Z && git push && git push --tags`.
+3. The Release workflow builds and publishes to PyPI through trusted publishing (no token in GitHub).
