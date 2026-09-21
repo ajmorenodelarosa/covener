@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 from .config import ConfigError
 from .config import load as load_config
-from .init import initialize
+from .init import ConflictError, initialize
 from .repo import find_repo_root
 from .status import compute, render_json, render_text
 
@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated IDE adapters to configure: claude,cursor (default: auto-detect, else both)",
     )
     init_parser.add_argument("--dry-run", action="store_true", help="show what would change without writing")
+    init_parser.add_argument(
+        "--adopt",
+        action="store_true",
+        help="share directories that already hold something else (specs/, tasks/, ...) instead of refusing",
+    )
     init_parser.add_argument(
         "--install-agents",
         action="store_true",
@@ -99,7 +104,11 @@ def cmd_init(args: argparse.Namespace) -> int:
             tools=tools,
             dry_run=args.dry_run,
             install_agents=args.install_agents,
+            adopt=args.adopt,
         )
+    except ConflictError as exc:
+        print(f"covener init: {exc}", file=sys.stderr)
+        return 2
     except (ValueError, ConfigError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

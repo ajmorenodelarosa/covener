@@ -484,7 +484,7 @@ tools: [claude, cursor]
 
 ```bash
 pip install covener            # or: uv tool install covener / pipx install covener
-covener init                   # --tools claude,cursor  --dry-run  --install-agents
+covener init                   # --tools claude,cursor  --dry-run  --adopt  --install-agents
 covener status                 # --domain <name>  --json  --verbose  --strict
 covener change start <name>    # --spec ID  --bug ID  --task ID  --title "..."
 covener change archive <name>
@@ -495,13 +495,39 @@ covener serve                  # MCP over stdio               (covener[mcp])
 
 Python 3.10+. One runtime dependency (PyYAML). No network. `-C <dir>` works on every command.
 
-**Existing files are safe.** An existing `AGENTS.md` keeps its content and gets the Covener block
-between `<!-- covener:start -->` and `<!-- covener:end -->`; re-running `init` refreshes only that
-block. Nothing of yours is overwritten or moved. If your `AGENTS.md` carries stack conventions, they
-belong in `skills/`, which agents load only when relevant: `init` says so when it finds one. An
-existing `CLAUDE.md` gets an `@AGENTS.md` import; existing `.claude/agents/`, `.claude/skills/` and
-similar directories keep their own entries and gain one link per Covener agent or skill; a legacy
-`.cursorrules` is reported.
+**`init` checks before it writes.** It looks at every path it would touch and, if one of its
+directories already belongs to something else, it refuses and writes nothing:
+
+```
+$ covener init
+covener init: this repository already uses directories Covener needs, so nothing was written:
+
+  specs/ holds openapi.yaml, payments.md
+    Covener expects specifications: Markdown with `title` and `status` in front matter there.
+  tasks/ holds build.sh
+    Covener expects task files: Markdown with `title` and `status` in front matter there.
+
+Either move that content elsewhere, or run `covener init --adopt` to share the directories:
+Covener adds its own files, leaves yours alone, and `covener status` reports the ones it
+cannot read as specs, bugs or tasks.
+```
+
+`--adopt` shares the folder: your files stay untouched, Covener's are added, and non-Markdown files
+are simply ignored by `status`. A repository that already has `.covener/config.yaml` is Covener's,
+so re-running `init` never blocks.
+
+Content already in Covener's shape is adopted without asking. If your `agents/` holds Markdown with
+`name` and `description`, or your `specs/` holds Markdown with `title` and `status`, they are your
+agents and your specs: Covener uses them, adds only what is missing, and a role you already define
+keeps your file.
+
+**Your instructions and tool directories are never a conflict.** An existing `AGENTS.md` keeps its
+content and gets the Covener block between `<!-- covener:start -->` and `<!-- covener:end -->`;
+re-running `init` refreshes only that block. If your `AGENTS.md` carries stack conventions, they
+belong in `skills/`, which agents load only when relevant, and `init` says so when it finds one. An
+existing `CLAUDE.md` gets an `@AGENTS.md` import. Existing `.claude/agents/`, `.claude/skills/`,
+`.cursor/agents/` and `.agents/skills/` keep their own entries and gain one link per Covener agent
+or skill. A legacy `.cursorrules` is reported.
 
 **Windows.** Links become directory junctions when symlinks are not permitted. Clone with
 `git config core.symlinks true`, or run `covener init` after cloning to repair the links.

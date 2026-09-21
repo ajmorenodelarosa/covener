@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0] - 2026-09-21
+
+### Added
+- `covener init` runs a preflight check and refuses, writing nothing, when one of its directories
+  already belongs to something else (a `specs/` of OpenAPI files, a `tasks/` of scripts, a
+  `changes/` holding a changelog). The message names every clashing path and what was found.
+- `covener init --adopt` shares those directories instead: your files stay, Covener's are added.
+- Content already in Covener's shape is adopted without asking: your `agents/*.md` with `name` and
+  `description`, your `specs/*.md` with `title` and `status`, your `skills/<name>/SKILL.md`.
+- A repository that already has `.covener/config.yaml` is never blocked, so re-running `init` is
+  still idempotent.
+
 ## [0.5.0] - 2026-09-21
 
 ### Changed
