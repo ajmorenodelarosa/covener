@@ -11,6 +11,7 @@ from typing import Any
 from . import states
 from .config import Config
 from .repo import ItemKey, Repository, load_repository
+from .validate import PLACEHOLDER_MARKERS as PLACEHOLDERS
 from .validate import Report, validate
 
 
@@ -20,6 +21,7 @@ class StatusSnapshot:
     vision: str
     specs: dict[str, int]  # status -> count
     domains: dict[str, int]  # spec count per domain folder
+    skills: list[dict[str, Any]]  # name, template (still the shipped template)
     bugs: dict[str, int]
     tasks: dict[str, int]
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
@@ -40,6 +42,7 @@ class StatusSnapshot:
             "product": {"vision": self.vision},
             "specs": self.specs,
             "domains": self.domains,
+            "skills": self.skills,
             "bugs": self.bugs,
             "tasks": self.tasks,
             "backlog": self.backlog,
@@ -116,6 +119,10 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
         vision=vision_state,
         specs=specs,
         domains={d: n for d, n in repo.domains().items() if domain is None or d == domain},
+        skills=[
+            {"name": skill.name or skill.folder, "template": any(m in skill.body for m in PLACEHOLDERS)}
+            for skill in repo.skills
+        ],
         bugs=_counts(repo, "bug", keep),
         tasks=_counts(repo, "task", keep),
         backlog=[
@@ -154,6 +161,9 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
     for title, counts in (("Bugs", snapshot.bugs), ("Tasks", snapshot.tasks)):
         if counts["total"]:
             lines += [""] + _count_lines(title, counts)
+    if snapshot.skills:
+        marks = ", ".join(f"{s['name']}{' (template)' if s['template'] else ''}" for s in snapshot.skills)
+        lines += ["", f"Skills: {marks}"]
     lines += ["", "Backlog", f"  Items: {len(snapshot.backlog)}"]
     for entry in snapshot.backlog:
         lines.append(f"  - {entry['kind']} {entry['id']} (priority {entry['priority']})")

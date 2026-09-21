@@ -20,11 +20,14 @@ class CursorAdapter(Adapter):
     def agents_dir(self, root: Path) -> Path:
         return root / ".cursor" / "agents"
 
+    def skills_dir(self, root: Path) -> Path:
+        return root / ".cursor" / "skills"
+
     def detect(self, root: Path) -> bool:
         return (root / ".cursor").is_dir() or (root / ".cursorrules").is_file()
 
     def install(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
-        result = self.link_agents(root, config, dry_run=dry_run)
+        result = self.link_all(root, config, dry_run=dry_run)
         if (root / ".cursorrules").is_file():
             result.notes.append(
                 "A legacy .cursorrules file exists. Cursor also reads AGENTS.md; consider moving "

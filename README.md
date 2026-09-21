@@ -35,6 +35,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   `changes/archive/`. `covener status --strict` fails CI on that rule and every consistency rule.
 - **The backlog is derived, never written.** Approved specs, open bugs and open tasks that are not in
   an open change, bugs first, then by priority. Nothing to maintain, nothing for a team to collide on.
+- **Skills carry your conventions.** `skills/<name>/SKILL.md` in the Agent Skills open standard,
+  linked into `.claude/skills`, `.cursor/skills` and `.agents/skills`. `frontend` and `backend` ship
+  as templates to fill in, and a convention broken twice becomes a line in one of them.
 - **Knowledge is evidence.** Regulations and contracts in `knowledge/` become a page-anchored corpus
   with a citation graph; specs cite `file#page-N`, the reviewer verifies, and `status` flags dangling
   references.
@@ -106,6 +109,7 @@ changes/<name>/design.md            how it will be built; optional, archived wit
 changes/<name>/work.md              checklist, summary, decisions, QA, review, your feedback
 changes/archive/YYYY-MM-DD-<name>/  finished changes: the history of the product
 knowledge/                          optional: domain documents, their Markdown, INDEX.md, CITATIONS.md
+skills/<name>/SKILL.md              this project's conventions; .claude/skills, .cursor/skills and .agents/skills link here
 agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link here
 AGENTS.md                           a small block every coding agent reads (CLAUDE.md imports it)
 .covener/config.yaml                role to agent mapping and tools; nothing else
@@ -368,6 +372,39 @@ on the order of a few dollars per hundred documents, depending on model and docu
 lives in `.covener/knowledge/` (ignored by git, rebuildable); the Markdown and both index files are
 committed and reviewable.
 
+## Skills: your conventions, not generic advice
+
+An agent already knows React and Postgres. What it does not know is that your forms use one wrapper,
+that your migrations never backfill in the same deploy, or that raw hex colours are banned. That is
+what a skill is for.
+
+```
+skills/frontend/SKILL.md      structure, state, data fetching, forms, styling, accessibility, tests
+skills/backend/SKILL.md       layout, API contracts, data and migrations, errors, authorisation, logs
+skills/<yours>/SKILL.md       api-design, data-migrations, mobile, whatever your stack needs
+skills/<name>/reference/…     longer material the agent reads only when it needs it
+skills/<name>/scripts/…       scripts it runs instead of writing code
+```
+
+Skills follow the [Agent Skills](https://agentskills.io) open standard: a folder with a `SKILL.md`
+whose front matter carries `name` (matching the folder) and `description`. `covener init` links the
+folder into `.claude/skills` (Claude Code), `.cursor/skills` (Cursor) and `.agents/skills` (the
+portable location Codex and others read), so there is one copy and editing it is editing the file.
+
+`frontend` and `backend` ship as templates with the sections that matter and a done checklist.
+Until you fill them in, `covener status` marks them `(template)` and tells you to, because an empty
+skill is worse than none: the agent falls back on generic habits.
+
+**How the team uses them.** The engineer reads the skill for the layer it is touching before writing
+code and follows its checklist. QA takes its test expectations from the same file. The reviewer
+checks the change against it, and when a convention is broken twice, the finding comes with one
+proposed line for the skill. That is how a project's conventions accumulate instead of being
+re-explained every session.
+
+Writing one that actually fires: the description is a routing rule in the third person, saying what
+it covers **and** when to use it; one job per skill; `SKILL.md` short, with detail in `reference/`;
+your practice, not best practice.
+
 ## Tools: CLI and MCP
 
 The same implementation has two doors: the CLI for people and CI, and a local MCP server for the
@@ -413,10 +450,10 @@ fast model for QA, a balanced one for the engineer, a strong one for the rest.
 
 **Extending the team.** Roles are the contract; agents are files. Rename or disable a role in
 `.covener/config.yaml`; add an agent by adding a file (a `frontend-engineer.md` next to `engineer.md`
-is visible to every tool through the links). For stack-specific know-how, prefer skills over more
-roles: Claude Code and Cursor load a skill only when the task needs it, so one engineer with
-`frontend`, `backend` and `infra` skills stays cheaper and more consistent than three engineers with
-three prompts. Keep `agents/` for boundaries and your tool's skills directory for expertise.
+is visible to every tool through the links). For stack-specific know-how, prefer a skill over another
+role: skills load only when the task needs them, so one engineer with `frontend`, `backend` and
+`infra` skills stays cheaper and more consistent than three engineers with three prompts. Keep
+`agents/` for boundaries and `skills/` for expertise.
 
 ```yaml
 # .covener/config.yaml
@@ -442,9 +479,11 @@ covener serve                  # MCP over stdio               (covener[mcp])
 Python 3.10+. One runtime dependency (PyYAML). No network. `-C <dir>` works on every command.
 
 **Existing files are safe.** An existing `AGENTS.md` keeps its content and gets the Covener block
-between `<!-- covener:start -->` and `<!-- covener:end -->`; an existing `CLAUDE.md` gets an
-`@AGENTS.md` import; existing `.claude/agents/` or `.cursor/agents/` directories keep their files and
-get per-agent links; a legacy `.cursorrules` is reported.
+between `<!-- covener:start -->` and `<!-- covener:end -->`; re-running `init` refreshes only that
+block. Nothing of yours is overwritten or moved. If your `AGENTS.md` carries stack conventions, they
+belong in `skills/`, which agents load only when relevant: `init` says so when it finds one. An
+existing `CLAUDE.md` gets an `@AGENTS.md` import; existing `.claude/agents/`, `.cursor/skills/` and
+similar directories keep their files and get per-entry links; a legacy `.cursorrules` is reported.
 
 **Windows.** Links become directory junctions when symlinks are not permitted. Clone with
 `git config core.symlinks true`, or run `covener init` after cloning to repair the links.
@@ -473,9 +512,9 @@ you want the backlog triaged for you, or when you run agents unattended.
 **Do I need MCP, hooks or a server?** No. The repository provides the context. `covener serve` is
 optional and runs locally over stdio, for IDEs that prefer tools to shell commands.
 
-**Can I use my own agents or skills?** Yes. Drop a file in `agents/`; it is visible to every tool
-through the links. Rename or disable roles in `.covener/config.yaml`. Put stack-specific expertise in
-skills rather than in more roles.
+**Can I use my own agents or skills?** Yes. Drop a file in `agents/` or a folder in `skills/`; both
+are visible to every tool through the links, with no re-run. Rename or disable roles in
+`.covener/config.yaml`. Put stack-specific expertise in skills rather than in more roles.
 
 **What if I uninstall the package?** Everything keeps working. The method is in the files; `status` and
 `change` are only a checker and a scaffold.
@@ -491,7 +530,7 @@ four things.
 
 ## Roadmap
 
-- Codex and Windsurf link adapters, and skills linked like agents.
+- Codex and Windsurf link adapters.
 - `/covener` chat commands for approving and requesting changes from the conversation.
 - Knowledge Oracle: DOCX and HTML sources and more citation jurisdictions.
 

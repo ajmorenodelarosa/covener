@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import states
-from .repo import ItemKey, Repository
+from .repo import SKILL_NAME_RE, ItemKey, Repository
 from .roles import ROLE_KEYS
 
 PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:", "{{")
@@ -79,6 +79,30 @@ def _check_agents(repo: Repository, report: Report) -> None:
                 f"{repo.config.paths['agents']}/{name}.md",
                 f"config maps role '{role}' to agent '{name}' but no such definition exists",
             )
+
+
+def _check_skills(repo: Repository, report: Report) -> None:
+    """Skills follow the Agent Skills open standard: name matching the folder, and a description."""
+    for skill in repo.skills:
+        if not skill.has_skill_file:
+            report.warning("skill.no-file", skill.path, "skill folder has no SKILL.md; agents will not see it")
+            continue
+        if not skill.name or not skill.description:
+            report.error("skill.incomplete", skill.path, "SKILL.md needs 'name' and 'description' in its front matter")
+            continue
+        if skill.name != skill.folder:
+            report.error(
+                "skill.name-mismatch", skill.path, f"name {skill.name!r} must match the folder {skill.folder!r}"
+            )
+        if not SKILL_NAME_RE.match(skill.name):
+            report.error("skill.invalid-name", skill.path, "name must be lowercase letters, numbers and hyphens")
+        if len(skill.description) > 1024:
+            report.error("skill.long-description", skill.path, "description must be at most 1024 characters")
+        if any(marker in skill.body for marker in PLACEHOLDER_MARKERS):
+            report.warning(
+                "skill.placeholder", skill.path, "skill is still the template; fill in this project's conventions"
+            )
+            report.act(f"Fill in {skill.path} with this project's conventions")
 
 
 def _check_items(repo: Repository, report: Report) -> None:
@@ -192,6 +216,7 @@ def validate(repo: Repository) -> Report:
         report.error("parse", problem.path, problem.message)
     _check_vision(repo, report)
     _check_agents(repo, report)
+    _check_skills(repo, report)
     _check_items(repo, report)
     _check_changes(repo, report)
     report.actions = list(dict.fromkeys(report.actions))

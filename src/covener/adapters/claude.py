@@ -60,11 +60,14 @@ class ClaudeAdapter(Adapter):
     def agents_dir(self, root: Path) -> Path:
         return root / ".claude" / "agents"
 
+    def skills_dir(self, root: Path) -> Path:
+        return root / ".claude" / "skills"
+
     def detect(self, root: Path) -> bool:
         return (root / ".claude").is_dir() or (root / "CLAUDE.md").is_file()
 
     def install(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
-        result = self.link_agents(root, config, dry_run=dry_run)
+        result = self.link_all(root, config, dry_run=dry_run)
         claude_md = root / "CLAUDE.md"
         block = f"{MARK_START}\n{CLAUDE_IMPORT_LINE}\n{MARK_END}\n"
         if not claude_md.exists():

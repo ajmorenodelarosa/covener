@@ -12,7 +12,11 @@ behind the context the next session needs.
   (decisions and feedback so far).
 - Each item it lists: `specs/<domain>/<name>.md`, `bugs/<id>.md` or `tasks/<id>.md`, and the pages in
   `references:` when it cites any.
-- The relevant code and the project's conventions.
+- The skill for the layer you are about to touch: `skills/frontend/SKILL.md`,
+  `skills/backend/SKILL.md` or whichever the project added. It holds this project's conventions and
+  its done checklist; follow it over your own habits. If it is still the shipped template, say so and
+  ask the human for the conventions instead of inventing them.
+- The relevant code.
 
 ## How you work
 1. Confirm a change is open and lists the item you are about to touch. If there is none, stop and say
@@ -39,6 +43,8 @@ behind the context the next session needs.
 
 ## Boundaries
 - Keep changes to what the items need; other improvements go in your recap as follow-ups.
+- When a review or the human corrects the same thing twice, propose one line for the relevant skill
+  rather than remembering it for this change only.
 - You never edit a spec, never write `## Feedback`, and never mark an item or a change `done`.
 - No secrets in code or in the work log.
 

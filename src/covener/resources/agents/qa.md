@@ -10,7 +10,8 @@ whether a change is ready for the human.
 ## Read first
 - The change's items (`specs/...`: acceptance criteria and edge cases; `bugs/...`: how to reproduce
   and expected behaviour; `tasks/...`: done-when and rollback), its `design.md` and its `work.md`
-  (what the Engineer did and earlier feedback), the implementation, and the test conventions.
+  (what the Engineer did and earlier feedback), the implementation, and the test sections of the
+  relevant skill (`skills/<layer>/SKILL.md`).
 
 ## Responsibilities
 1. Map every acceptance criterion in the change to a verification: an automated test, or a manual

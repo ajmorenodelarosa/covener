@@ -29,6 +29,8 @@ from .states import KINDS, READY_STATE
 ENTRY_HEADING_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
 APPROVED_RE = re.compile(r"^(?:\*\*)?Approved(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z]+)", re.IGNORECASE)
 CHECK_RE = re.compile(r"^\s*[-*]\s+\[(?P<done>[ xX])\]\s+\S")
+SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SKILL_FILE = "SKILL.md"
 ITEM_REF_RE = re.compile(r"^(?P<kind>spec|bug|task)\s*[:/]\s*(?P<id>\S+)$", re.IGNORECASE)
 RESERVED_NAMES: frozenset[str] = frozenset({"vision", "template", "readme"})
 IGNORED_AGENT_FILES: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
@@ -210,6 +212,18 @@ class Change:
 
 
 @dataclass
+class Skill:
+    """A folder in ``skills/`` with a SKILL.md, in the Agent Skills open standard."""
+
+    path: str  # repository-relative path of SKILL.md (or of the folder when it is missing)
+    folder: str
+    name: str = ""
+    description: str = ""
+    body: str = ""
+    has_skill_file: bool = False
+
+
+@dataclass
 class AgentDefinition:
     path: str
     name: str
@@ -227,6 +241,7 @@ class Repository:
     vision_text: str = ""
     items: list[Item] = field(default_factory=list)
     changes: list[Change] = field(default_factory=list)
+    skills: list[Skill] = field(default_factory=list)
     agents: list[AgentDefinition] = field(default_factory=list)
     problems: list[ParseProblem] = field(default_factory=list)
 
@@ -457,6 +472,32 @@ def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> li
     return changes
 
 
+def load_skills(root: Path, skills_dir: Path, problems: list[ParseProblem]) -> list[Skill]:
+    skills: list[Skill] = []
+    if not skills_dir.is_dir():
+        return skills
+    for directory in sorted(p for p in skills_dir.iterdir() if p.is_dir() and not p.name.startswith(".")):
+        skill_file = directory / SKILL_FILE
+        if not skill_file.is_file():
+            skills.append(Skill(path=_rel(root, directory), folder=directory.name))
+            continue
+        rel = _rel(root, skill_file)
+        document = _document(skill_file, rel, problems)
+        if document is None:
+            continue
+        skills.append(
+            Skill(
+                path=rel,
+                folder=directory.name,
+                name=_as_str(document.meta.get("name")),
+                description=_as_str(document.meta.get("description")),
+                body=document.body,
+                has_skill_file=True,
+            )
+        )
+    return skills
+
+
 def load_agents(root: Path, agents_dir: Path, problems: list[ParseProblem]) -> list[AgentDefinition]:
     agents: list[AgentDefinition] = []
     if not agents_dir.is_dir():
@@ -493,5 +534,6 @@ def load_repository(root: Path, config: Config) -> Repository:
         item for kind in KINDS for item in load_items(root, kind, root / paths[f"{kind}s"], paths, problems)
     ]
     repository.changes = load_changes(root, config, problems)
+    repository.skills = load_skills(root, root / paths["skills"], problems)
     repository.agents = load_agents(root, root / paths["agents"], problems)
     return repository

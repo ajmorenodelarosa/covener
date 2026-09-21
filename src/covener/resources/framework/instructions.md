@@ -20,6 +20,9 @@ source of truth, the conversation is the interface, and humans approve.
   `knowledge/INDEX.md` and `knowledge/CITATIONS.md`; ask the `search_knowledge` tool when it is
   configured, otherwise read the index. Cite evidence as `knowledge/<file>.md#page-N` in `references:`
 - Agents: `agents/` (one file per agent; `.claude/agents` and `.cursor/agents` link here)
+- Skills, this project's conventions: `skills/<name>/SKILL.md` in the Agent Skills open standard
+  (`.claude/skills`, `.cursor/skills` and `.agents/skills` link here). Read the skill for the layer
+  you are touching before writing code; `frontend` and `backend` ship as templates to fill in
 - State model: `.covener/states.yaml`; role mapping: `.covener/config.yaml`
 
 Rules for every agent:
@@ -37,5 +40,7 @@ Rules for every agent:
 6. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
 7. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
-8. The `status` tool (or `covener status`) lists the backlog, the open changes, what is next and what
-   is inconsistent; use it before starting work and after changing statuses.
+8. The `status` tool (or `covener status`) lists the backlog, the open changes, the skills, what is
+   next and what is inconsistent; use it before starting work and after changing statuses.
+9. When a review finds the same problem twice, the fix is a line in the relevant skill, proposed to the
+   human. Skills are how this project's conventions accumulate.

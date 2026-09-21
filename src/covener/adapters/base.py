@@ -10,6 +10,9 @@ from .. import frontmatter
 from ..config import Config
 
 IGNORED: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
+SKILL_FILE = "SKILL.md"
+# The Agent Skills open standard: Codex, Cursor and others read this location natively.
+PORTABLE_SKILLS_DIR = Path(".agents") / "skills"
 
 
 @dataclass
@@ -37,13 +40,13 @@ def _points_into(link: Path, source_dir: Path) -> bool:
 
 
 class Adapter:
-    """Expose the canonical ``agents/`` directory where a tool looks for subagents.
+    """Expose the canonical ``agents/`` and ``skills/`` directories where a tool looks for them.
 
-    There is exactly one file per agent, ``agents/<name>.md``. The tool directory
-    (``.claude/agents`` or ``.cursor/agents``) is a symlink to ``agents/``. When that directory
-    already exists with the project's own files, each agent is linked into it instead. When the
-    platform refuses symlinks (Windows without Developer Mode), files are copied and the developer
-    is told.
+    There is exactly one file per agent (``agents/<name>.md``) and one folder per skill
+    (``skills/<name>/SKILL.md``). The tool directory (``.claude/agents``, ``.cursor/skills``, ...)
+    is a symlink to ours. When that directory already exists with the project's own entries, each
+    of ours is linked into it instead. When the platform refuses symlinks (Windows without
+    Developer Mode), files are copied and the developer is told.
     """
 
     key = "base"
@@ -51,6 +54,10 @@ class Adapter:
 
     def agents_dir(self, root: Path) -> Path:  # pragma: no cover - abstract
         raise NotImplementedError
+
+    def skills_dir(self, root: Path) -> Path | None:
+        """Where this tool reads skills, or None when it reads the portable location only."""
+        return None
 
     def detect(self, root: Path) -> bool:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -86,6 +93,12 @@ class Adapter:
             return False
         return content == os.path.relpath(target, path.parent).replace("\\", "/")
 
+    def _skill_dirs(self, source_dir: Path) -> list[Path]:
+        """Skill folders that carry a SKILL.md, the Agent Skills open standard."""
+        if not source_dir.is_dir():
+            return []
+        return sorted(p for p in source_dir.iterdir() if p.is_dir() and (p / SKILL_FILE).is_file())
+
     def _agent_files(self, source_dir: Path) -> list[Path]:
         if not source_dir.is_dir():
             return []
@@ -102,9 +115,20 @@ class Adapter:
         return files
 
     def link_agents(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
-        result = AdapterResult(tool=self.key)
-        source_dir = root / config.paths["agents"]
-        target_dir = self.agents_dir(root)
+        return self.link_dir(root, root / config.paths["agents"], self.agents_dir(root), config, dry_run)
+
+    def link_dir(
+        self,
+        root: Path,
+        source_dir: Path,
+        target_dir: Path,
+        config: Config,
+        dry_run: bool = False,
+        result: AdapterResult | None = None,
+    ) -> AdapterResult:
+        """Link ``target_dir`` to ``source_dir``, or every entry of ours into an existing directory."""
+        result = result or AdapterResult(tool=self.key)
+        entries = "skills" if source_dir.name == config.paths["skills"] else "agents"
         target_rel = _rel(root, target_dir)
         source_rel = _rel(root, source_dir)
 
@@ -138,14 +162,17 @@ class Adapter:
                 return result
             result.notes.append(
                 f"Could not create the symlink {target_rel} -> {source_rel} (symlinks unavailable on this "
-                "platform). Files were copied instead; re-run `covener init` after editing agents/."
+                f"platform). Files were copied instead; re-run `covener init` after editing {entries}/."
             )
             target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Existing real directory: link (or copy) each agent file into it.
-        sources = self._agent_files(source_dir)
-        if not sources and dry_run:  # agents/ is not written yet in a dry run
-            sources = [source_dir / f"{name}.md" for name in config.active_agents().values()]
+        # Existing real directory: link (or copy) each of our entries into it.
+        if entries == "skills":
+            sources = self._skill_dirs(source_dir)
+        else:
+            sources = self._agent_files(source_dir)
+            if not sources and dry_run:  # agents/ is not written yet in a dry run
+                sources = [source_dir / f"{name}.md" for name in config.active_agents().values()]
         for source in sources:
             link = target_dir / source.name
             link_rel = _rel(root, link)
@@ -170,14 +197,18 @@ class Adapter:
             if dry_run:
                 result.created.append(link_rel)
                 continue
-            if self._symlink(link, source, is_dir=False):
+            if self._symlink(link, source, is_dir=source.is_dir()):
                 result.created.append(link_rel)
+            elif source.is_dir():
+                shutil.copytree(source, link)
+                result.created.append(link_rel)
+                result.notes.append(f"{link_rel} was copied because symlinks are unavailable here.")
             else:
                 shutil.copyfile(source, link)
                 result.created.append(link_rel)
                 result.notes.append(f"{link_rel} was copied because symlinks are unavailable here.")
 
-        # Dangling links into agents/ belong to renamed or deleted agents.
+        # Dangling links into ours belong to renamed or deleted entries.
         for entry in sorted(target_dir.iterdir()) if target_dir.is_dir() else []:
             if not entry.is_symlink() or entry.exists():
                 continue
@@ -188,5 +219,22 @@ class Adapter:
                 result.removed.append(_rel(root, entry))
         return result
 
+    def link_skills(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
+        """Link this tool's skills directory, plus the portable ``.agents/skills`` location."""
+        result = AdapterResult(tool=self.key)
+        source_dir = root / config.paths["skills"]
+        for target in (self.skills_dir(root), root / PORTABLE_SKILLS_DIR):
+            if target is not None:
+                self.link_dir(root, source_dir, target, config, dry_run, result)
+        return result
+
+    def link_all(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
+        """Link the agents and the skills this tool reads."""
+        result = self.link_agents(root, config, dry_run=dry_run)
+        skills = self.link_skills(root, config, dry_run=dry_run)
+        for name in ("created", "updated", "removed", "unchanged", "skipped", "notes"):
+            getattr(result, name).extend(getattr(skills, name))
+        return result
+
     def install(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
-        return self.link_agents(root, config, dry_run=dry_run)
+        return self.link_all(root, config, dry_run=dry_run)

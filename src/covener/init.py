@@ -23,6 +23,8 @@ from .roles import DEFAULT_AGENT_NAMES
 
 MCP_ENTRY: dict[str, object] = {"command": "covener", "args": ["serve"]}
 
+STARTER_SKILLS: tuple[str, ...] = ("frontend", "backend")
+
 MARK_START = "<!-- covener:start -->"
 MARK_END = "<!-- covener:end -->"
 BLOCK_RE = re.compile(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), re.DOTALL)
@@ -121,7 +123,8 @@ def integrate_agents_md(root: Path, report: InitReport) -> None:
         report.updated.append("AGENTS.md")
         report.notes.append(
             "Existing AGENTS.md detected. AGENTS.md has no include mechanism, so the Covener "
-            "instructions were appended inside clearly marked comments; your original content is untouched."
+            "instructions were appended inside clearly marked comments; your original content is untouched. "
+            "Stack conventions in it are better placed in skills/, which agents load only when relevant."
         )
         return
     blocks = BLOCK_RE.findall(existing)
@@ -225,7 +228,15 @@ def initialize(
     paths = cfg.paths
 
     if not dry_run:
-        for directory in (paths["specs"], paths["bugs"], paths["tasks"], paths["changes"], paths["agents"], ".covener"):
+        for directory in (
+            paths["specs"],
+            paths["bugs"],
+            paths["tasks"],
+            paths["changes"],
+            paths["agents"],
+            paths["skills"],
+            ".covener",
+        ):
             (root / directory).mkdir(parents=True, exist_ok=True)
 
     if first_init:
@@ -236,6 +247,7 @@ def initialize(
     _write(root, f"{paths['specs']}/TEMPLATE.md", read_resource("templates/spec.md"), report)
     _write(root, f"{paths['bugs']}/TEMPLATE.md", read_resource("templates/bug.md"), report)
     _write(root, f"{paths['tasks']}/TEMPLATE.md", read_resource("templates/task.md"), report)
+    _write(root, f"{paths['skills']}/README.md", read_resource("templates/skills-README.md"), report)
     _write(root, f"{paths['changes']}/TEMPLATE/change.md", read_resource("templates/change.md"), report)
     _write(root, f"{paths['changes']}/TEMPLATE/design.md", read_resource("templates/design.md"), report)
     _write(root, f"{paths['changes']}/TEMPLATE/work.md", read_resource("templates/work.md"), report)
@@ -269,6 +281,15 @@ def initialize(
                 f"'{default_name}' definition; adjust its prompt if those roles need different guidance."
             )
         _write(root, target_rel, content, report)
+
+    for skill in STARTER_SKILLS:
+        target_rel = f"{paths['skills']}/{skill}/SKILL.md"
+        if (root / target_rel).exists():
+            report.kept.append(target_rel)
+        elif install_defaults:
+            _write(root, target_rel, read_resource(f"skills/{skill}/SKILL.md"), report)
+        else:
+            report.notes.append(f"{target_rel} is missing; re-run with --install-agents to add the starter skill.")
 
     integrate_agents_md(root, report)
 

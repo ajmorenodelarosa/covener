@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0] - 2026-09-21
+
+### Added
+- Skills: `skills/<name>/SKILL.md` in the Agent Skills open standard, linked into `.claude/skills`
+  (Claude Code), `.cursor/skills` (Cursor) and `.agents/skills` (portable), the same way agents are.
+- `frontend` and `backend` starter skills with the sections that matter and a done checklist.
+  `covener status` lists the skills, marks the ones still in template form and says to fill them in.
+- `status` reports broken skills: missing SKILL.md, missing name or description, a name that does not
+  match its folder, an invalid name, a description over 1024 characters.
+- The engineer reads the skill for the layer it touches, QA takes test expectations from it, and the
+  reviewer proposes a line for it when a convention is broken twice.
+
+### Fixed
+- Two agent descriptions contained a colon, which broke their own YAML front matter and made the IDE
+  ignore the file. A test now validates the front matter of every packaged agent and skill.
+
 ## [0.3.0] - 2026-09-21
 
 ### Added

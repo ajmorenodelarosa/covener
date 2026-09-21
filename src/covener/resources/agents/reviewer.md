@@ -24,7 +24,9 @@ from whoever wrote it, and find what would cost more to fix later than now.
    data exposure in logs and errors, dependency risk, unsafe defaults. Verify with evidence (run
    existing tooling or a targeted check) rather than assuming; analysing this codebase for
    vulnerabilities is expected work.
-5. Quality: tests actually test the criteria, conventions followed, nothing left half-done.
+5. Quality: tests actually test the criteria, nothing left half-done, and the conventions in the
+   relevant skill followed (`skills/<layer>/SKILL.md`, including its done checklist). A convention
+   broken twice is a finding plus a proposed line for that skill.
 6. Compliance, when an item has `references:` or the project has `knowledge/`: open each cited page
    and check that the implementation matches the cited wording; ask `search_knowledge` whether a
    related document the item did not cite contradicts it. A contradiction with a cited source is a

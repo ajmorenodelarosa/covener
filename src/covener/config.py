@@ -24,6 +24,7 @@ PATHS: dict[str, str] = {
     "bugs": "bugs",
     "tasks": "tasks",
     "changes": "changes",
+    "skills": "skills",
     "agents": "agents",
 }
 
