@@ -25,8 +25,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   grouped by domain so an agent reads a whole domain before changing it. Bugs and tasks are one file
   each. None of them holds design, history or chat.
 - **The change is the unit of work.** `covener change start account-closure --spec privacy/account-closure`
-  creates a folder with the design, the checklist and the work log. One item, one change, one branch.
-  No sprints and no iteration ceremony: you go item by item.
+  creates a folder with the design, the checklist and the work log. One change, one branch, one pull
+  request; an item is in at most one open change. No sprints and no iteration ceremony: you go item
+  by item.
 - **Design lives with the change, not with the product.** `design.md` holds the approach, the flows,
   the data and the alternatives rejected. It is archived with the change instead of rotting inside
   the spec.
@@ -114,6 +115,7 @@ skills/<name>/SKILL.md              this project's conventions; .claude/skills a
 agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link to each file
 AGENTS.md                           a small block every coding agent reads (CLAUDE.md imports it)
 .covener/config.yaml                role to agent mapping and tools; nothing else
+.covener/states.yaml                the states and the human gates, as the agents read them
 ```
 
 **Which file?** If in a year someone must read it to know what the product is, it is a spec. If it
@@ -210,6 +212,8 @@ Tasks
   Open: 1
   Done: 0
 
+Skills: backend, frontend
+
 Backlog
   Items: 4
   - bug erasure-skips-backups (priority 1)
@@ -242,8 +246,9 @@ to fail CI on errors. No model is involved; it only reads files.
 Errors are the rules that protect your authority and the repository's consistency: an item or a change
 `done` without your `Approved: Yes`; an item in two open changes; a draft spec or an unknown id in a
 change; an open change in the archive; a change with no work log; invalid statuses or unparsable
-files; a missing vision; a configured agent without a definition. Archived changes are history: only
-the approval rule applies to them, so a spec that later changes never breaks CI.
+files; a missing vision; a configured agent without a definition; a skill that breaks the standard
+(its `name` not matching its folder, or no description). Archived changes are history: only the
+approval rule applies to them, so a spec that later changes never breaks CI.
 
 ## Teams and review
 
@@ -286,9 +291,9 @@ for the human reviewer. An example with Claude Code; adapt it to your CI and too
 - env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    claude -p --agent reviewer --allowedTools "Read" "Bash(git diff *)" "Bash(git log *)" \
-      "Review this pull request against the work log of the change it closes. Report findings \
-       by severity with file and line, and compliance against cited references." \
+    claude -p "Review this pull request against the work log of the change it closes. Report \
+      findings by severity with file and line, and compliance against cited references." \
+      --agent reviewer --allowed-tools "Read" "Bash(git diff *)" "Bash(git log *)" \
       >> "$GITHUB_STEP_SUMMARY"
 ```
 
@@ -352,7 +357,13 @@ Relations
   - data-retention-policy -> gdpr (citation)
   - data-retention-policy -> amld (citation)
   - personal data -> customer due diligence (graph)
+
+(backend: oracle)
 ```
+
+With no API key the same question is answered by a deterministic search over the same Markdown, in
+the same shape and with the same evidence references (`backend: grep`). There is no mode in which
+either backend answers without evidence: it returns none and says so.
 
 **How the team uses it.** Product asks the Oracle before drafting a governed spec and cites the
 evidence in `references:`. Engineer reads the cited pages before designing. Reviewer opens every
@@ -446,8 +457,8 @@ their MCP config at `covener serve` (stdio). The server exposes nothing that cha
 ## The agents
 
 Five roles with explicit boundaries, one Markdown file each in `agents/`, in the front matter format
-Claude Code and Cursor read natively. `init` links `.claude/agents` and `.cursor/agents` to that
-folder, so there is exactly one copy of each agent and editing it is editing the file.
+Claude Code and Cursor read natively. `init` puts one link per agent in `.claude/agents` and
+`.cursor/agents`, so there is exactly one copy of each agent and editing it is editing the file.
 
 | Role | Owns | Never |
 |---|---|---|
@@ -466,11 +477,11 @@ requested. The model is a property of the agent (`model: claude-sonnet-5` or `in
 fast model for QA, a balanced one for the engineer, a strong one for the rest.
 
 **Extending the team.** Roles are the contract; agents are files. Rename or disable a role in
-`.covener/config.yaml`; add an agent by adding a file (a `frontend-engineer.md` next to `engineer.md`
-is visible to every tool through the links). For stack-specific know-how, prefer a skill over another
-role: skills load only when the task needs them, so one engineer with `frontend`, `backend` and
-`infra` skills stays cheaper and more consistent than three engineers with three prompts. Keep
-`agents/` for boundaries and `skills/` for expertise.
+`.covener/config.yaml`; add an agent by adding a file and running `covener init` once to link it (a
+`frontend-engineer.md` next to `engineer.md` is then visible to every tool). For stack-specific
+know-how, prefer a skill over another role: skills load only when the task needs them, so one
+engineer with `frontend`, `backend` and `infra` skills stays cheaper and more consistent than three
+engineers with three prompts. Keep `agents/` for boundaries and `skills/` for expertise.
 
 ```yaml
 # .covener/config.yaml
@@ -495,8 +506,8 @@ covener serve                  # MCP over stdio               (covener[mcp])
 
 Python 3.10+. One runtime dependency (PyYAML). No network. `-C <dir>` works on every command.
 
-**`init` checks before it writes.** It looks at every path it would touch and, if one of its
-directories already belongs to something else, it refuses and writes nothing:
+**`init` checks before it writes.** It looks at the directories it needs and, if one of them already
+belongs to something else, it refuses and writes nothing:
 
 ```
 $ covener init
@@ -529,8 +540,9 @@ existing `CLAUDE.md` gets an `@AGENTS.md` import. Existing `.claude/agents/`, `.
 `.cursor/agents/` and `.agents/skills/` keep their own entries and gain one link per Covener agent
 or skill. A legacy `.cursorrules` is reported.
 
-**Windows.** Links become directory junctions when symlinks are not permitted. Clone with
-`git config core.symlinks true`, or run `covener init` after cloning to repair the links.
+**Windows.** Without Developer Mode, skill folders become directory junctions and agent files are
+copied; `init` says which. Clone with `git config core.symlinks true`, or run `covener init` after
+cloning to repair the links.
 
 **CI.**
 
@@ -556,9 +568,10 @@ you want the backlog triaged for you, or when you run agents unattended.
 **Do I need MCP, hooks or a server?** No. The repository provides the context. `covener serve` is
 optional and runs locally over stdio, for IDEs that prefer tools to shell commands.
 
-**Can I use my own agents or skills?** Yes. Drop a file in `agents/` or a folder in `skills/`; both
-are visible to every tool through the links, with no re-run. Rename or disable roles in
-`.covener/config.yaml`. Put stack-specific expertise in skills rather than in more roles.
+**Can I use my own agents or skills?** Yes. Drop a file in `agents/` or a folder in `skills/` and run
+`covener init` once so every tool gets its link; editing one afterwards needs nothing, because the
+link points at your file. Rename or disable roles in `.covener/config.yaml`. Put stack-specific
+expertise in skills rather than in more roles.
 
 **What if I uninstall the package?** Everything keeps working. The method is in the files; `status` and
 `change` are only a checker and a scaffold.

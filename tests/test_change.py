@@ -1,4 +1,4 @@
-"""covener change: start refuses items that are not ready, archive refuses without approval."""
+"""covener change: the unit of work, from the backlog to the archive."""
 
 from __future__ import annotations
 
@@ -17,7 +17,11 @@ def cfg(root: Path) -> config.Config:
     return config.load(root)
 
 
-def test_start_scaffolds_the_change(repo: Path) -> None:
+def state(root: Path) -> str:
+    return compute(root, cfg(root))[2].changes[0]["state"]
+
+
+def test_start_scaffolds_the_change_and_takes_the_item(repo: Path) -> None:
     spec(repo, "billing/refunds")
     report = change_module.start(repo, cfg(repo), "refund-flow", specs=["billing/refunds"])
     assert report.created == [
@@ -27,15 +31,14 @@ def test_start_scaffolds_the_change(repo: Path) -> None:
     ]
     text = (repo / "changes" / "refund-flow" / "change.md").read_text()
     assert "status: open" in text and "  - spec: billing/refunds" in text and "opened: 20" in text
-    assert "## Checklist" in (repo / "changes" / "refund-flow" / "work.md").read_text()
-    # The item is now taken: it leaves the backlog and a second change is refused.
+    # The item is taken: it leaves the backlog, so no other agent picks it up.
     _, _, snapshot = compute(repo, cfg(repo))
     assert snapshot.backlog == [] and snapshot.changes[0]["name"] == "refund-flow"
     with pytest.raises(change_module.ChangeError, match="already in the open change"):
         change_module.start(repo, cfg(repo), "second", specs=["billing/refunds"])
 
 
-def test_start_refuses_bad_input(repo: Path) -> None:
+def test_start_refuses_what_would_break_the_rules(repo: Path) -> None:
     spec(repo, "draft-spec", status="draft")
     bug(repo, "rounding")
     with pytest.raises(change_module.ChangeError, match="does not exist"):
@@ -51,75 +54,56 @@ def test_start_refuses_bad_input(repo: Path) -> None:
         change_module.start(repo, cfg(repo), "fix-rounding", bugs=["rounding"])
 
 
-def test_archive_needs_the_human_approval(repo: Path) -> None:
-    spec(repo, "billing/refunds")
-    task(repo, "upgrade-deps")
-    change_module.start(repo, cfg(repo), "refund-flow", specs=["billing/refunds"], tasks=["upgrade-deps"])
-    work = repo / "changes" / "refund-flow" / "work.md"
-    with pytest.raises(change_module.ChangeError, match="does not end with a human 'Approved: Yes'"):
-        change_module.archive(repo, cfg(repo), "refund-flow")
-    work.write_text("## Summary\nDone.\n\n## Feedback\nApproved: No\nFix it.\n")
-    with pytest.raises(change_module.ChangeError, match="changes requested"):
-        change_module.archive(repo, cfg(repo), "refund-flow")
-    work.write_text("## Summary\nDone.\n\n## Feedback\nApproved: Yes\n")
-    report = change_module.archive(repo, cfg(repo), "refund-flow", when="2026-09-21")
-    assert report.moved == ["changes/refund-flow -> changes/archive/2026-09-21-refund-flow"]
-    archived = repo / "changes" / "archive" / "2026-09-21-refund-flow" / "change.md"
-    assert "status: done" in archived.read_text() and "closed: 2026-09-21" in archived.read_text()
-    assert "status: done" in (repo / "specs" / "billing" / "refunds.md").read_text()
-    assert "status: done" in (repo / "tasks" / "upgrade-deps.md").read_text()
-    # The repository stays consistent and the item shows up as done.
-    _, report_, snapshot = compute(repo, cfg(repo))
-    assert report_.errors == [] and snapshot.changes == []
-    assert [(e["kind"], e["id"], e["change"]) for e in snapshot.done] == [
-        ("spec", "billing/refunds", "2026-09-21-refund-flow"),
-        ("task", "upgrade-deps", "2026-09-21-refund-flow"),
-    ]
-    with pytest.raises(change_module.ChangeError, match="already archived"):
-        change_module.archive(repo, cfg(repo), "refund-flow")
-
-
-def test_cli_change_commands(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    spec(repo, "billing/refunds")
-    assert main(["-C", str(repo), "change", "start", "refund-flow", "--spec", "billing/refunds"]) == 0
-    assert "+ changes/refund-flow/change.md" in capsys.readouterr().out
-    assert main(["-C", str(repo), "change", "archive", "refund-flow"]) == 2
-    assert "Approved: Yes" in capsys.readouterr().err
-    write(repo, "changes/refund-flow/work.md", "## Summary\nx\n\n## Feedback\nApproved: Yes\n")
-    assert main(["-C", str(repo), "change", "archive", "refund-flow"]) == 0
-    assert "archived" in capsys.readouterr().out
-    assert main(["-C", str(repo), "status", "--strict"]) == 0
-
-
-def test_a_whole_change_cycle(repo: Path) -> None:
-    """The flow a developer follows, with the checks that protect it."""
+def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     spec(repo, "privacy/account-closure", priority="high")
-    _, _, snapshot = compute(repo, cfg(repo))
-    assert [(e["kind"], e["id"]) for e in snapshot.backlog] == [("spec", "privacy/account-closure")]
-
-    change_module.start(repo, cfg(repo), "account-closure", specs=["privacy/account-closure"])
-    folder = repo / "changes" / "account-closure"
-    assert (folder / "design.md").is_file()
-    _, _, snapshot = compute(repo, cfg(repo))
-    assert snapshot.changes[0]["state"] == "not_started" and snapshot.backlog == []
+    task(repo, "upgrade-deps")
+    items = ["spec: privacy/account-closure", "task: upgrade-deps"]
+    assert (
+        main(
+            ["-C", str(repo), "change", "start", "account-closure"]
+            + ["--spec", "privacy/account-closure", "--task", "upgrade-deps"]
+        )
+        == 0
+    )
+    assert "+ changes/account-closure/change.md" in capsys.readouterr().out
+    assert (repo / "changes" / "account-closure" / "design.md").is_file()  # the design lives in the change
+    assert state(repo) == "not_started"
 
     write(repo, "changes/account-closure/work.md", "## Checklist\n- [x] a\n\n## Summary\nBuilt.\n")
-    _, _, snapshot = compute(repo, cfg(repo))
-    assert snapshot.changes[0]["state"] == "in_progress"
+    assert state(repo) == "in_progress"
 
-    change(
-        repo,
-        "account-closure",
-        status="review",
-        items=["spec: privacy/account-closure"],
-        work="## Checklist\n- [x] a\n\n## Summary\nBuilt.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n",
+    # QA and review passed; the change waits for the only verdict that closes it.
+    work = "## Checklist\n- [x] a\n\n## Summary\nBuilt.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n"
+    change(repo, "account-closure", status="review", items=items, work=work)
+    assert state(repo) == "awaiting_feedback"
+    assert main(["-C", str(repo), "change", "archive", "account-closure"]) == 2
+    assert "Approved: Yes" in capsys.readouterr().err
+
+    write(repo, "changes/account-closure/work.md", work + "\n## Feedback\nApproved: No\nFix it.\n")
+    assert state(repo) == "changes_requested"
+    with pytest.raises(change_module.ChangeError, match="changes requested"):
+        change_module.archive(repo, cfg(repo), "account-closure")
+    assert any("rework account-closure" in action for action in compute(repo, cfg(repo))[1].actions)
+
+    write(repo, "changes/account-closure/work.md", work + "\n## Rework\nFixed.\n\n## Feedback\nApproved: Yes\n")
+    assert (
+        "Close account-closure: your approval is in changes/account-closure/work.md"
+        in compute(repo, cfg(repo))[1].actions
     )
-    _, report, snapshot = compute(repo, cfg(repo))
-    assert snapshot.changes[0]["state"] == "awaiting_feedback" and snapshot.pending_human_review == 1
-    assert any("Give feedback on change account-closure" in a for a in report.actions)
+    report = change_module.archive(repo, cfg(repo), "account-closure", when="2026-09-21")
+    assert report.moved == ["changes/account-closure -> changes/archive/2026-09-21-account-closure"]
+    archived = repo / "changes" / "archive" / "2026-09-21-account-closure"
+    assert "status: done" in (archived / "change.md").read_text()
+    assert "closed: 2026-09-21" in (archived / "change.md").read_text()
+    assert (archived / "design.md").is_file()
+    assert "status: done" in (repo / "specs" / "privacy" / "account-closure.md").read_text()
+    assert "status: done" in (repo / "tasks" / "upgrade-deps.md").read_text()
 
-    write(repo, "changes/account-closure/work.md", "## Summary\nBuilt.\n\n## Feedback\nApproved: Yes\n")
-    change_module.archive(repo, cfg(repo), "account-closure", when="2026-09-21")
-    _, report, snapshot = compute(repo, cfg(repo))
-    assert report.errors == [] and snapshot.specs["done"] == 1 and snapshot.changes == []
-    assert (repo / "changes" / "archive" / "2026-09-21-account-closure" / "design.md").is_file()
+    _, report_, snapshot = compute(repo, cfg(repo))
+    assert report_.errors == [] and snapshot.changes == [] and snapshot.specs["done"] == 1
+    assert [(e["kind"], e["id"], e["change"]) for e in snapshot.done] == [
+        ("spec", "privacy/account-closure", "2026-09-21-account-closure"),
+        ("task", "upgrade-deps", "2026-09-21-account-closure"),
+    ]
+    with pytest.raises(change_module.ChangeError, match="already archived"):
+        change_module.archive(repo, cfg(repo), "account-closure")

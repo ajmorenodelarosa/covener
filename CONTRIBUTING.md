@@ -18,7 +18,9 @@ pip install -e ".[dev]"
 pytest && ruff check . && mypy
 ```
 
-Tests live in `tests/` and are kept minimal: one behaviour, one test. Please add one for any bug you fix.
+Tests live in `tests/` and are kept few and meaningful: one test per rule Covener promises, named
+after the rule. Prefer extending the test that owns a rule over adding another one, and delete a
+test when the behaviour it guarded is gone. Please cover any bug you fix.
 
 ## Pull requests
 
