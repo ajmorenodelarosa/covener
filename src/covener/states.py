@@ -25,10 +25,11 @@ CHANGE_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("review", "done")})
 # Derived state of a change, computed from its work log and never stored.
 WORK_STATES: tuple[str, ...] = (
     "not_started",  # no work entry yet (a checklist alone is not work)
+    "awaiting_design",  # the design is proposed and waits for the human, before any code
     "in_progress",  # work entries, change still open
     "awaiting_feedback",  # change in review, no feedback after the latest work entry
     "changes_requested",  # latest entry is feedback with Approved: No
-    "approved",  # latest feedback is Approved: Yes
+    "approved",  # latest feedback is Approved: Yes, on a change in review or archived
 )
 
 KINDS: tuple[str, ...] = ("spec", "bug", "task")

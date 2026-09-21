@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0] - 2026-09-21
+
+### Added
+- The design is a human gate. The engineer writes `design.md`, logs a `## Design` entry in the
+  change's work log and stops; `covener status` reports the change as `awaiting design`, counts it
+  in *Pending human review* and points at the file to read. You extend the design, reject it with
+  `Approved: No`, or approve it with `Approved: Yes`, and only then is code written.
+- `## Design` is a work-log entry kind of its own, next to `## Feedback` and the agents' entries.
+
+### Changed
+- An `Approved: Yes` on a change that is still `open` approves the design, not the work: only a
+  change in `review` (or already archived) counts as approved. This also closes a loophole, since
+  `covener change archive` used to accept an approval written before the change ever reached review.
+- `covener change archive` says which of the two approvals is missing instead of reporting a generic
+  one.
+- The engineer prompt, the AGENTS.md block, `.covener/states.yaml` and the `work.md` and `design.md`
+  templates carry the gate; a change too small for a design skips it and says so.
+
 ## [0.6.0] - 2026-09-21
 
 ### Added

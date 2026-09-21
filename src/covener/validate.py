@@ -200,7 +200,9 @@ def _check_changes(repo: Repository, report: Report) -> None:
                     where,
                     f"{item.path} is {item.status!r}; a change only takes {states.READY_STATE[kind]} {kind}s",
                 )
-        if state == "awaiting_feedback":
+        if state == "awaiting_design":
+            report.act(f"Review the design of change {change.name} in {change.path}/design.md", *change.items)
+        elif state == "awaiting_feedback":
             report.act(f"Give feedback on change {change.name} in {change.work_file}", *change.items)
         elif state == "changes_requested":
             report.act(f"Agents: rework {change.name} from the feedback in {change.work_file}", *change.items)

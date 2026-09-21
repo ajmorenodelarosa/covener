@@ -69,6 +69,20 @@ def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.Capt
     assert (repo / "changes" / "account-closure" / "design.md").is_file()  # the design lives in the change
     assert state(repo) == "not_started"
 
+    # The design comes first and stops: it is yours to read, extend and approve before any code.
+    write(repo, "changes/account-closure/work.md", "## Checklist\n- [ ] a\n\n## Design\nTwo tables, one endpoint.\n")
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert snapshot.changes[0]["state"] == "awaiting_design" and snapshot.pending_human_review == 1
+    assert "Review the design of change account-closure in changes/account-closure/design.md" in report.actions
+
+    # An approval on a change that is still open approves the design, not the work.
+    write(
+        repo, "changes/account-closure/work.md", "## Design\nTwo tables, one endpoint.\n\n## Feedback\nApproved: Yes\n"
+    )
+    assert state(repo) == "in_progress"
+    with pytest.raises(change_module.ChangeError, match="approval of the design"):
+        change_module.archive(repo, cfg(repo), "account-closure")
+
     write(repo, "changes/account-closure/work.md", "## Checklist\n- [x] a\n\n## Summary\nBuilt.\n")
     assert state(repo) == "in_progress"
 

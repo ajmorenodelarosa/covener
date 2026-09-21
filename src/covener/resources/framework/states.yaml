@@ -32,5 +32,8 @@ change:                     # changes/<name>/change.md -> status:   the unit of 
     - "`covener change archive <name>` refuses without that approval, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"
 
 work:                       # derived from changes/<name>/work.md, never stored
-  states: [not_started, in_progress, awaiting_feedback, changes_requested, approved]
+  states: [not_started, awaiting_design, in_progress, awaiting_feedback, changes_requested, approved]
   rule: 'the last "## ..." entry decides (the ## Checklist does not count); a "## Feedback" entry carries Approved: Yes or No'
+  gates:
+    - 'a "## Design" entry proposes the design and stops: no code until the human answers with "## Feedback" and Approved: Yes'
+    - 'an Approved: Yes on a change that is still open approves the design; only on a change in review does it approve the work'

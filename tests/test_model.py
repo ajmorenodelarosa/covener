@@ -72,15 +72,17 @@ def test_states_yaml_matches_the_code() -> None:
 def test_the_work_log_is_chronological_and_feedback_carries_the_verdict() -> None:
     """The work log is the audit trail: the last human verdict is the one that counts."""
     entries = parse_work(
-        "# x\n\n## Checklist\n- [ ] a\n\n## Summary\nDid X.\n\n## Feedback\n**Approved:** no\nFix Y.\n\n"
+        "# x\n\n## Checklist\n- [ ] a\n\n## Design\nTwo tables and one endpoint.\n\n"
+        "## Summary\nDid X.\n\n## Feedback\n**Approved:** no\nFix Y.\n\n"
         "## Rework\nFixed.\n\n## Feedback: round 2\napproved: YES\n\n## Feedback\nno approved line\n"
     )
     assert [(e.kind, e.approved) for e in entries] == [
         ("checklist", None),
+        ("design", None),  # a design proposal waits for the human, like the work does
         ("work", None),
         ("feedback", False),
         ("work", None),
         ("feedback", True),
         ("feedback", False),  # feedback without a verdict is not an approval
     ]
-    assert entries[2].text == "**Approved:** no\nFix Y."
+    assert entries[3].text == "**Approved:** no\nFix Y."

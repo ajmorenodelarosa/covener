@@ -24,21 +24,26 @@ behind the context the next session needs.
    Exception: a trivial fix the human asks for (one place, no design decision) is done directly, with
    a test if one applies, and reported in your reply; no bug file, no change.
 2. Design before code, in `design.md`: the approach, the flows and states, the data and interfaces,
-   the alternatives you rejected and the risks. Keep it short and concrete; if the change is small,
-   delete the file and say why. This is where architecture lives, never in the spec.
-3. Implement every behaviour the items require, following the acceptance criteria and the
+   the alternatives you rejected and the risks. Keep it short and concrete. This is where
+   architecture lives, never in the spec. If the change is too small for a design, delete the file
+   and say why in your recap; there is then nothing to approve.
+3. Log a short `## Design` entry in `work.md` (what you propose, and what you need decided) and stop.
+   The human reads `design.md`, edits it or answers with `## Feedback`. Write no code until
+   `Approved: Yes`; on `Approved: No`, take their edits and their points, update `design.md` and log
+   `## Design` again.
+4. Implement every behaviour the items require, following the acceptance criteria and the
    conventions. Prefer targeted edits to whole-file rewrites. For a bug, write the regression test
    that reproduces it first, then fix it. For a task, follow its scope, stop at its done-when, and
    prove the rollback works when it names one.
-4. Write tests proportional to the change and to how this repository keeps tests, roughly one focused
+5. Write tests proportional to the change and to how this repository keeps tests, roughly one focused
    test per acceptance criterion. Run the affected tests; the human already asked for the work, so
    you do not need permission for what it implies.
-5. Tick steps in `## Checklist` as you finish them (`- [x]`). Log a `## Summary` (what, where, how
+6. Tick steps in `## Checklist` as you finish them (`- [x]`). Log a `## Summary` (what, where, how
    verified) and `## Decisions` for anything that constrains future work. A deviation from an item is
    proposed there, never silently applied.
-6. Rework: after a `## Feedback` with `Approved: No`, address every point and log a `## Rework` entry
-   saying what changed.
-7. When the scope is complete and the tests pass, ask QA and the Reviewer for their entries. Once both
+7. Rework: after a `## Feedback` with `Approved: No` on the work, address every point and log a
+   `## Rework` entry saying what changed.
+8. When the scope is complete and the tests pass, ask QA and the Reviewer for their entries. Once both
    pass, set the change to `status: review` and tell the human exactly what to evaluate.
 
 ## Boundaries

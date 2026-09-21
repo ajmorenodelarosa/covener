@@ -140,7 +140,7 @@ class WorkEntry:
     """A ``## ...`` section of a work log, in file order."""
 
     title: str
-    kind: str  # "feedback" | "work" | "checklist"
+    kind: str  # "feedback" | "design" | "work" | "checklist"
     approved: bool | None = None  # feedback only
     text: str = ""
 
@@ -203,7 +203,12 @@ class Change:
             return "not_started"
         last = entries[-1]
         if last.kind == "feedback":
-            return "approved" if last.approved else "changes_requested"
+            if not last.approved:
+                return "changes_requested"
+            # A "Yes" on a change that is still open approves the design, not the work.
+            return "in_progress" if self.status == "open" else "approved"
+        if last.kind == "design":
+            return "awaiting_design"
         return "awaiting_feedback" if self.status == "review" else "in_progress"
 
     @property
@@ -326,7 +331,8 @@ def count_checklist(text: str) -> tuple[int, int]:
 
 def parse_work(text: str) -> list[WorkEntry]:
     """Parse a work log: ``## ...`` entries in order. ``## Feedback`` entries are human decisions
-    and carry ``Approved: Yes|No``; ``## Checklist`` is the checklist; everything else is agent work."""
+    and carry ``Approved: Yes|No``; ``## Design`` proposes the design and waits for one;
+    ``## Checklist`` is the checklist; everything else is agent work."""
     entries: list[WorkEntry] = []
     current: WorkEntry | None = None
     lines: list[str] = []
@@ -353,6 +359,8 @@ def parse_work(text: str) -> list[WorkEntry]:
             lowered = title.lower()
             if lowered.startswith("feedback"):
                 kind = "feedback"
+            elif lowered.startswith("design"):
+                kind = "design"
             elif lowered.startswith(("checklist", "tasks")):
                 kind = "checklist"
             else:

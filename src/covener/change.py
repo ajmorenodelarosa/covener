@@ -98,7 +98,10 @@ def start(
     )
     (directory / WORK_FILE).write_text(read_resource("templates/work.md").replace("<title>", heading), encoding="utf-8")
     report.created += [f"{directory.relative_to(root).as_posix()}/{f}" for f in (CHANGE_FILE, DESIGN_FILE, WORK_FILE)]
-    report.notes.append("Write the design before the code; delete design.md if the change does not need one.")
+    report.notes.append(
+        "Write design.md and log `## Design` in work.md: the human approves the design before any code. "
+        "Delete design.md if the change does not need one."
+    )
     return report
 
 
@@ -116,6 +119,12 @@ def archive(root: Path, config: Config, name: str, when: str = "") -> ChangeRepo
         if archived is not None:
             raise ChangeError(f"change {name!r} is already archived in {archived.path}")
         raise ChangeError(f"change {name!r} does not exist")
+    last = next((entry for entry in reversed(change.work) if entry.kind != "checklist"), None)
+    if not change.approved and change.status == "open" and last is not None and last.approved:
+        raise ChangeError(
+            f"{change.work_file} ends with an approval of the design, not of the work: when the work is "
+            f"complete, set `status: review` in {change.path}/{CHANGE_FILE} and ask for your verdict"
+        )
     if not change.approved:
         raise ChangeError(
             f"{change.work_file} does not end with a human 'Approved: Yes' "

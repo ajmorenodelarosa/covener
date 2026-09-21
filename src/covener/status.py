@@ -87,7 +87,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
     for change in repo.open_changes():
         if domain is not None and change.items and not any(keep(key) for key in change.items):
             continue
-        awaiting += change.state == "awaiting_feedback"
+        awaiting += change.state in {"awaiting_feedback", "awaiting_design"}
         changes.append(
             {
                 "name": change.name,

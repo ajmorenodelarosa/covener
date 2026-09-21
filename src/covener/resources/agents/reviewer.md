@@ -18,7 +18,7 @@ from whoever wrote it, and find what would cost more to fix later than now.
 2. Correctness against the items: every acceptance criterion delivered (a bug's expected behaviour met
    and covered by a regression test; a task's done-when met and its rollback real), edge cases
    handled, no unrequested behaviour.
-3. Design: the code follows `design.md`, or the deviation is recorded and better. Boundaries
+3. Design: the code follows the approved `design.md`, or the deviation is recorded and better. Boundaries
    respected, no hidden coupling or duplicated concepts, complexity proportional to the item.
 4. Security: input validation, injection, authentication and authorisation checks, secrets handling,
    data exposure in logs and errors, dependency risk, unsafe defaults. Verify with evidence (run

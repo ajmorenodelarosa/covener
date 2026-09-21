@@ -11,7 +11,7 @@ source of truth, the conversation is the interface, and humans approve.
 - Tasks, work that changes neither what the product is nor fixes a bug (migrations, refactors,
   upgrades, removals): `tasks/<id>.md` (`status: open | done`)
 - Changes, the unit of work: `changes/<name>/` with `change.md` (status and the items it touches),
-  `design.md` (how it will be built; optional, dies with the change) and `work.md`
+  `design.md` (how it will be built, approved by the human before any code; optional) and `work.md`
   (checklist, summaries, decisions, QA, review and human feedback, chronological).
   Finished changes live in `changes/archive/`
 - Backlog: not a file. Approved specs, open bugs and open tasks that are not in an open change;
@@ -31,16 +31,19 @@ Rules for every agent:
    `--bug`, `--task`); it refuses an item that is not ready or is already in an open change.
 2. Implementation, tests and reviews happen only for the items the open change lists. A spec that is
    approved, in a change or done is not edited: changes to it are proposed to the Product agent.
-3. Record what you did, decided and found in the change's `work.md`. Put the design in `design.md`
-   before writing code. Short and useful; never chat logs.
-4. Agents never write `## Feedback` entries. When the work is complete and reviewed, set the change to
+3. Record what you did, decided and found in the change's `work.md`. Short and useful; never chat logs.
+4. Design before code: write `design.md`, log a short `## Design` entry in `work.md`, and stop. The
+   human reads it, edits it or answers with `## Feedback`; no code is written until `Approved: Yes`.
+   A change too small for a design says so and skips the step.
+5. Agents never write `## Feedback` entries. When the work is complete and reviewed, set the change to
    `status: review` and tell the human what to evaluate.
-5. After the human writes `Approved: Yes`, close the change with `covener change archive <name>`:
-   it marks the items done and moves the change to the archive. It refuses without that approval.
-6. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
-7. Never state what a regulation or document says without evidence from `knowledge/`; if there is
+6. After the human writes `Approved: Yes` on a change in `review`, close it with
+   `covener change archive <name>`: it marks the items done and moves the change to the archive. It
+   refuses without that approval.
+7. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
+8. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
-8. The `status` tool (or `covener status`) lists the backlog, the open changes, the skills, what is
+9. The `status` tool (or `covener status`) lists the backlog, the open changes, the skills, what is
    next and what is inconsistent; use it before starting work and after changing statuses.
-9. When a review finds the same problem twice, the fix is a line in the relevant skill, proposed to the
-   human. Skills are how this project's conventions accumulate.
+10. When a review finds the same problem twice, the fix is a line in the relevant skill, proposed to the
+    human. Skills are how this project's conventions accumulate.

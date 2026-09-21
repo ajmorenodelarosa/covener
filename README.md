@@ -28,8 +28,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   creates a folder with the design, the checklist and the work log. One change, one branch, one pull
   request; an item is in at most one open change. No sprints and no iteration ceremony: you go item
   by item.
-- **Design lives with the change, not with the product.** `design.md` holds the approach, the flows,
-  the data and the alternatives rejected. It is archived with the change instead of rotting inside
+- **You approve the design before there is code.** The engineer writes `design.md` (approach, flows,
+  data, alternatives rejected), logs it and stops; `covener status` says a design is waiting for you.
+  You extend it, reject it or approve it. It is archived with the change instead of rotting inside
   the spec.
 - **Approval is a rule that code enforces.** `covener change archive <name>` refuses unless the work
   log ends with a human `Approved: Yes`; then it marks the items done and files the change under
@@ -90,10 +91,12 @@ kind of requirement Covener is built for.
 |---|---|---|
 | 1 | product | Reads every spec in `specs/privacy/`, asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/privacy/account-closure.md` with acceptance criteria and `references:` to the evidence. You set `status: approved`. |
 | 2 | you (or planner) | `covener change start account-closure --spec privacy/account-closure`. The planner is optional: it reads the backlog and proposes the next item when you want it to. |
-| 3 | engineer | Writes `design.md` (approach, flows, retention schedule, alternatives), then the code and the tests, ticking the checklist and logging decisions. |
-| 4 | qa, reviewer | QA maps each criterion to a test; the reviewer checks architecture, security and every cited page. Both log their verdict. |
-| 5 | you | The change goes to `review`. You write `Approved: No` with what to change, or `Approved: Yes`. |
-| 6 | anyone | `covener change archive account-closure`: refused without your approval; with it, the spec becomes `done` and the change is filed by date. Six months later an auditor asks why a closed customer's passport scan still exists: the spec, the citations, the design, the review and your approval are all in the repository. |
+| 3 | engineer | Writes `design.md` (approach, flows, retention schedule, alternatives), logs `## Design` and stops. |
+| 4 | you | Read it, edit it, add the constraint the agent could not know. `Approved: No` with what to change, or `Approved: Yes`; only then is code written. |
+| 5 | engineer | The code and the tests, ticking the checklist and logging decisions. |
+| 6 | qa, reviewer | QA maps each criterion to a test; the reviewer checks architecture, security and every cited page. Both log their verdict. |
+| 7 | you | The change goes to `review`. You write `Approved: No` with what to change, or `Approved: Yes`. |
+| 8 | anyone | `covener change archive account-closure`: refused without your approval; with it, the spec becomes `done` and the change is filed by date. Six months later an auditor asks why a closed customer's passport scan still exists: the spec, the citations, the design, the review and your approval are all in the repository. |
 
 ```bash
 covener status        # backlog, open changes, inconsistencies, what to do next
@@ -147,7 +150,12 @@ another open change. `archive` refuses a change whose work log does not end with
 when it does, it sets the change and its items to `done` and moves the folder to
 `changes/archive/<date>-<name>/`. The rule is executed, not merely reported.
 
-The work log is chronological. Agents add entries; you add one.
+**The design is yours before it is code.** The engineer writes `design.md`, logs a short `## Design`
+entry and stops. `covener status` counts it as pending human review and points at the file. You edit
+it, or answer `Approved: No` with what you want changed, or `Approved: Yes`; no code is written
+before that. A change too small for a design says so and skips the step: no gate, no wait.
+
+The work log is chronological. Agents add entries; you add yours.
 
 ```markdown
 # Account closure and data erasure
@@ -157,6 +165,14 @@ The work log is chronological. Agents add entries; you add one.
 - [x] immediate erasure of marketing and profiling data
 - [x] KYC records moved to restricted retention with a five-year expiry
 - [ ] customer-facing explanation of what is retained
+
+## Design
+Two stores: closure events, and a restricted retention area only compliance can read. The retention
+clock starts at the closure date. Alternatives and risks in design.md.
+
+## Feedback
+Approved: Yes
+Also show the customer what is kept and until when.
 
 ## Summary
 Closure flow in accounts/closure.py; retention store in compliance/retention.py. 14 tests.
@@ -184,8 +200,10 @@ Support role removed from retention access; retention summary added to the closu
 Approved: Yes
 ```
 
-The last entry is the state: awaiting feedback, changes requested or approved (the checklist does not
-count). `covener status` derives everything from this file.
+The last entry is the state: awaiting design, awaiting feedback, changes requested or approved (the
+checklist does not count). An `Approved: Yes` while the change is still `open` approves the design;
+only once the change is in `review` does it approve the work, which is why `change archive` refuses
+the first one and says so. `covener status` derives everything from this file.
 
 ## `covener status`
 
@@ -240,7 +258,8 @@ Next
   * Give feedback on change account-closure in changes/account-closure/work.md
 ```
 
-`--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings, `--strict`
+*Pending human review* counts both gates: a design waiting to be approved and a change waiting for
+your verdict. `--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings, `--strict`
 to fail CI on errors. No model is involved; it only reads files.
 
 Errors are the rules that protect your authority and the repository's consistency: an item or a change
@@ -265,6 +284,10 @@ developers work in parallel without stepping on each other, and a unit of review
 - Specs, bugs and tasks are one file each and there is no backlog file, so there is no shared list to
   fight over.
 - Finished changes are archived by date. Everything is committed.
+
+**You look twice, and the first time is cheap.** The design, before the code exists, is where an
+agent about to build the wrong thing well gets caught; the work log is where you check what it
+actually built.
 
 **Review the work, then the code.** A reviewer reads one work log: the checklist (what was done), the
 summary (where), the decisions (why), the design it followed, the QA entry (which test proves which
@@ -561,6 +584,11 @@ never touches your files. The repository works without the package installed.
 **Why no sprints?** Because agents do not need them. A sprint exists to batch work for people who
 estimate together; with agents you go item by item, and what matters is that each change is designed,
 reviewed and approved. The archive gives you the history a sprint used to give you.
+
+**Does approving the design slow me down?** Only when there is a design: the engineer skips it on
+small changes and says why, and approving costs one line in `work.md`. You can also just edit
+`design.md` yourself and approve your own version. It is the cheapest place to catch an agent that
+understood the task differently.
 
 **Do I need the planner?** No. Set `planner: off` and start changes yourself. It earns its place when
 you want the backlog triaged for you, or when you run agents unattended.
