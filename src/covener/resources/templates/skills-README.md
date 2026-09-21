@@ -2,8 +2,9 @@
 
 Skills are how this project teaches its agents *its* conventions. Each skill is a folder with a
 `SKILL.md` in the [Agent Skills](https://agentskills.io) open standard, so the same file works in
-Claude Code, Cursor, Codex and other tools. `covener init` links this folder to
-`.claude/skills`, `.cursor/skills` and `.agents/skills`, so there is one copy.
+Claude Code, Cursor, Codex, Copilot and other tools. `covener init` puts one link per skill in
+`.claude/skills` (Claude Code) and `.agents/skills` (the portable location the others read), so
+there is one copy. After adding a skill, run `covener init` once so the links exist.
 
 ```
 skills/<name>/SKILL.md        required: front matter `name` (matching the folder) and `description`

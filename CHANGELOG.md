@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0] - 2026-09-21
+
+### Changed
+- Agents and skills are linked one entry at a time instead of by linking the whole directory.
+  Claude Code documents a skill entry that is a symlink to a directory elsewhere as supported, while
+  a symlinked skills directory is undocumented and has open discovery bugs. `covener init` replaces
+  the directory links created by 0.4.0 and reports it.
+- Skills now reach every harness through two locations: `.claude/skills/` (Claude Code, and Copilot)
+  and `.agents/skills/` (Cursor, Codex, Copilot). The redundant `.cursor/skills/` is gone, since
+  Cursor reads `.agents/skills/` natively.
+- Existing tool directories keep their own agents and skills; Covener only adds its own links.
+
 ## [0.4.0] - 2026-09-21
 
 ### Added

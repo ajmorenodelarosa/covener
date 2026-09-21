@@ -32,11 +32,14 @@ def test_fresh_init_creates_structure_and_links(tmp_path: Path) -> None:
         assert (tmp_path / relative).is_file(), relative
     for name in DEFAULT_AGENT_NAMES.values():
         assert (tmp_path / "agents" / f"{name}.md").is_file()
+    # One link per agent, not a link to the whole directory: that is the form the tools document.
     for tool in (".claude", ".cursor"):
-        link = tmp_path / tool / "agents"
-        assert links_to(link, tmp_path / "agents")
+        directory = tmp_path / tool / "agents"
+        assert directory.is_dir() and not directory.is_symlink()
+        link = directory / "engineer.md"
+        assert links_to(link, tmp_path / "agents" / "engineer.md")
         if link.is_symlink():  # relative, so clones and moves keep working
-            assert os.readlink(link).replace("\\", "/") == "../agents"
+            assert os.readlink(link).replace("\\", "/") == "../../agents/engineer.md"
     assert "AGENTS.md" in report.created and not report.updated
     # Idempotent.
     again = initialize(tmp_path, tools=["claude", "cursor"])
@@ -61,7 +64,8 @@ def test_mcp_server_is_registered_when_available(tmp_path: Path, monkeypatch: py
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     report = initialize(tmp_path, tools=["claude"], dry_run=True)
-    assert "agents/qa.md" in report.created and ".claude/agents -> agents" in report.created
+    assert "agents/qa.md" in report.created and ".claude/agents/qa.md" in report.created
+    assert ".claude/skills/frontend" in report.created and ".agents/skills/frontend" in report.created
     assert list(tmp_path.iterdir()) == []
     (tmp_path / ".claude" / "agents").mkdir(parents=True)
     report = initialize(tmp_path, tools=["claude"], dry_run=True)
@@ -131,16 +135,19 @@ def test_symlink_failure_falls_back_to_copies(tmp_path: Path, monkeypatch: pytes
     report = initialize(tmp_path, tools=["claude"])
     copy = tmp_path / ".claude" / "agents" / "qa.md"
     assert copy.is_file() and not copy.is_symlink()
-    assert any("symlinks unavailable" in note for note in report.notes)
+    skill = tmp_path / ".claude" / "skills" / "frontend" / "SKILL.md"
+    assert skill.is_file() and not (tmp_path / ".claude" / "skills" / "frontend").is_symlink()
+    assert any("symlinks are unavailable" in note for note in report.notes)
 
 
 def test_git_symlink_placeholder_is_repaired(tmp_path: Path) -> None:
     initialize(tmp_path, tools=["claude"])
-    link = tmp_path / ".claude" / "agents"
+    link = tmp_path / ".claude" / "agents" / "engineer.md"
     remove_link(link)
-    link.write_text("../agents")  # what git writes with core.symlinks=false
+    link.write_text("../../agents/engineer.md")  # what git writes with core.symlinks=false
     report = initialize(tmp_path)
-    assert links_to(link, tmp_path / "agents") and any("core.symlinks" in note for note in report.notes)
+    assert links_to(link, tmp_path / "agents" / "engineer.md")
+    assert any("core.symlinks" in note for note in report.notes)
 
 
 def test_roles_rename_disable_alias_and_deleted_agents(tmp_path: Path) -> None:

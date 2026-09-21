@@ -21,8 +21,8 @@ source of truth, the conversation is the interface, and humans approve.
   configured, otherwise read the index. Cite evidence as `knowledge/<file>.md#page-N` in `references:`
 - Agents: `agents/` (one file per agent; `.claude/agents` and `.cursor/agents` link here)
 - Skills, this project's conventions: `skills/<name>/SKILL.md` in the Agent Skills open standard
-  (`.claude/skills`, `.cursor/skills` and `.agents/skills` link here). Read the skill for the layer
-  you are touching before writing code; `frontend` and `backend` ship as templates to fill in
+  (`.claude/skills` and `.agents/skills` hold one link per skill). Read the skill for the layer you
+  are touching before writing code; `frontend` and `backend` ship as templates to fill in
 - State model: `.covener/states.yaml`; role mapping: `.covener/config.yaml`
 
 Rules for every agent:

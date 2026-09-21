@@ -2,7 +2,8 @@
 
 Cursor reads ``AGENTS.md`` from the project root natively, so no rule file is needed for the
 shared instructions. Cursor subagents live in ``.cursor/agents/*.md`` (Markdown + YAML front
-matter with ``name``, ``description``, ``model``); ``.cursor/agents`` is a symlink to ``agents/``.
+matter with ``name``, ``description``, ``model``), which are linked from the project's ``agents/``.
+Skills need no Cursor-specific directory: Cursor reads the portable ``.agents/skills`` natively.
 """
 
 from __future__ import annotations
@@ -19,9 +20,6 @@ class CursorAdapter(Adapter):
 
     def agents_dir(self, root: Path) -> Path:
         return root / ".cursor" / "agents"
-
-    def skills_dir(self, root: Path) -> Path:
-        return root / ".cursor" / "skills"
 
     def detect(self, root: Path) -> bool:
         return (root / ".cursor").is_dir() or (root / ".cursorrules").is_file()

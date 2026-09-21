@@ -36,15 +36,36 @@ def test_init_installs_the_starter_skills_and_links_them(repo: Path) -> None:
     for name in STARTER_SKILLS:
         assert (repo / "skills" / name / "SKILL.md").is_file()
     assert (repo / "skills" / "README.md").is_file()
-    # Claude Code reads .claude/skills; Cursor reads .cursor/skills; .agents/skills is the portable one.
-    for link in (".claude/skills", ".cursor/skills", ".agents/skills"):
-        assert links_to(repo / link, repo / "skills"), link
-    assert links_to(repo / ".claude" / "agents", repo / "agents")
-    # Editing a skill is visible through every link, and adding one needs no re-run.
+    # One link per skill, which is the form Claude Code documents as supported. Claude Code reads
+    # .claude/skills; Cursor, Codex and Copilot read the portable .agents/skills.
+    for directory in (".claude/skills", ".agents/skills"):
+        assert (repo / directory).is_dir() and not (repo / directory).is_symlink(), directory
+        for name in STARTER_SKILLS:
+            assert links_to(repo / directory / name, repo / "skills" / name), f"{directory}/{name}"
+    assert not (repo / ".cursor" / "skills").exists()  # Cursor reads .agents/skills natively
+    # Editing a skill is visible through every link, and adding one needs a re-run for the links.
     write(repo, "skills/frontend/SKILL.md", "---\nname: frontend\ndescription: ours\n---\nUse tokens.\n")
-    assert "Use tokens." in (repo / ".cursor" / "skills" / "frontend" / "SKILL.md").read_text()
+    assert "Use tokens." in (repo / ".claude" / "skills" / "frontend" / "SKILL.md").read_text()
     write(repo, "skills/api-design/SKILL.md", "---\nname: api-design\ndescription: ours\n---\nREST.\n")
-    assert (repo / ".agents" / "skills" / "api-design" / "SKILL.md").is_file()
+    report = initialize(repo)
+    assert ".agents/skills/api-design" in report.created
+    assert (repo / ".claude" / "skills" / "api-design" / "SKILL.md").is_file()
+
+
+def test_a_directory_link_from_an_older_version_is_replaced(repo: Path) -> None:
+    """0.4.0 linked the whole directory; Claude Code only documents per-skill links."""
+    import os
+
+    for directory in (".claude/skills", ".agents/skills"):
+        for name in STARTER_SKILLS:
+            (repo / directory / name).unlink()
+        (repo / directory).rmdir()
+        os.symlink("../skills", repo / directory, target_is_directory=True)
+    report = initialize(repo)
+    assert any("replaced with one link per skill" in note for note in report.notes)
+    for directory in (".claude/skills", ".agents/skills"):
+        assert not (repo / directory).is_symlink()
+        assert links_to(repo / directory / "frontend", repo / "skills" / "frontend")
 
 
 def test_init_does_not_resurrect_a_deleted_skill(repo: Path) -> None:

@@ -11,7 +11,7 @@ from ..config import Config
 
 IGNORED: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 SKILL_FILE = "SKILL.md"
-# The Agent Skills open standard: Codex, Cursor and others read this location natively.
+# The Agent Skills open standard: Codex, Cursor and Copilot read this repository location natively.
 PORTABLE_SKILLS_DIR = Path(".agents") / "skills"
 
 
@@ -30,23 +30,32 @@ def _rel(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
+def _is_junction(path: Path) -> bool:
+    """Path.is_junction arrived in Python 3.12; on older versions there is nothing to detect."""
+    checker = getattr(path, "is_junction", None)
+    return bool(checker()) if checker is not None else False
+
+
 def _points_into(link: Path, source_dir: Path) -> bool:
-    """True when ``link`` is a symlink whose target lies inside ``source_dir``."""
+    """True when ``link`` resolves to ``source_dir`` or to something inside it."""
     try:
         resolved = link.resolve()
     except OSError:
         return False
-    return resolved == source_dir.resolve() or source_dir.resolve() in resolved.parents
+    source = source_dir.resolve()
+    return resolved == source or source in resolved.parents
 
 
 class Adapter:
-    """Expose the canonical ``agents/`` and ``skills/`` directories where a tool looks for them.
+    """Expose the project's ``agents/`` and ``skills/`` where each tool looks for them.
 
     There is exactly one file per agent (``agents/<name>.md``) and one folder per skill
-    (``skills/<name>/SKILL.md``). The tool directory (``.claude/agents``, ``.cursor/skills``, ...)
-    is a symlink to ours. When that directory already exists with the project's own entries, each
-    of ours is linked into it instead. When the platform refuses symlinks (Windows without
-    Developer Mode), files are copied and the developer is told.
+    (``skills/<name>/SKILL.md``). A tool directory such as ``.claude/agents`` or ``.claude/skills``
+    is a real directory holding one symlink per entry, not a symlink to ours: Claude Code documents
+    a skill entry that is a symlink to a directory elsewhere as supported, while a symlinked skills
+    directory is not documented and has known discovery bugs. Per-entry links also leave room for
+    the project's own agents and skills next to Covener's. Where the platform refuses symlinks
+    (Windows without Developer Mode), entries are copied and the developer is told.
     """
 
     key = "base"
@@ -56,7 +65,7 @@ class Adapter:
         raise NotImplementedError
 
     def skills_dir(self, root: Path) -> Path | None:
-        """Where this tool reads skills, or None when it reads the portable location only."""
+        """Where this tool reads skills, or None when the portable location covers it."""
         return None
 
     def detect(self, root: Path) -> bool:  # pragma: no cover - abstract
@@ -65,7 +74,7 @@ class Adapter:
     # --- linking ------------------------------------------------------------------------
     @staticmethod
     def _symlink(link: Path, target: Path, is_dir: bool) -> bool:
-        """Create a relative symlink; on Windows fall back to a directory junction (no privileges needed)."""
+        """Create a relative symlink; on Windows fall back to a junction for directories."""
         relative = os.path.relpath(target, link.parent)
         try:
             os.symlink(relative, link, target_is_directory=is_dir)
@@ -92,6 +101,17 @@ class Adapter:
         except (OSError, UnicodeDecodeError):
             return False
         return content == os.path.relpath(target, path.parent).replace("\\", "/")
+
+    @staticmethod
+    def _remove(path: Path) -> None:
+        """Remove a link or an empty directory; directory links need rmdir on Windows."""
+        if path.is_symlink() or path.is_file():
+            try:
+                path.unlink()
+                return
+            except (IsADirectoryError, PermissionError):
+                pass
+        os.rmdir(path)
 
     def _skill_dirs(self, source_dir: Path) -> list[Path]:
         """Skill folders that carry a SKILL.md, the Agent Skills open standard."""
@@ -126,71 +146,69 @@ class Adapter:
         dry_run: bool = False,
         result: AdapterResult | None = None,
     ) -> AdapterResult:
-        """Link ``target_dir`` to ``source_dir``, or every entry of ours into an existing directory."""
+        """Link every agent or skill of ours into ``target_dir``, one symlink per entry."""
         result = result or AdapterResult(tool=self.key)
-        entries = "skills" if source_dir.name == config.paths["skills"] else "agents"
+        kind = "skills" if source_dir.name == config.paths["skills"] else "agents"
         target_rel = _rel(root, target_dir)
         source_rel = _rel(root, source_dir)
 
-        if target_dir.is_symlink() or (
-            sys.platform == "win32" and target_dir.is_dir() and _points_into(target_dir, source_dir)
-        ):
-            if _points_into(target_dir, source_dir):
-                result.unchanged.append(f"{target_rel} -> {source_rel}")
-            else:
+        # A directory-wide symlink is what Covener created before 0.5.0, and what Claude Code does
+        # not document; replace it with a real directory of per-entry links.
+        if target_dir.is_symlink() or (sys.platform == "win32" and _is_junction(target_dir)):
+            if not _points_into(target_dir, source_dir):
                 result.skipped.append(target_rel)
-                result.notes.append(f"{target_rel} is a symlink to somewhere else; left untouched.")
-            return result
-
-        if self._is_git_symlink_placeholder(target_dir, source_dir):
-            # git checked the committed symlink out as a text file (core.symlinks=false); repair it.
-            if not dry_run:
-                target_dir.unlink()
-            verb = "would recreate" if dry_run else "recreated"
-            result.notes.append(
-                f"{target_rel} was a symlink placeholder left by git (core.symlinks=false); {verb} the link. "
-                "Consider `git config core.symlinks true` before cloning."
-            )
-
-        if not target_dir.exists():
+                result.notes.append(f"{target_rel} is a link to somewhere else; left untouched.")
+                return result
             if dry_run:
-                result.created.append(f"{target_rel} -> {source_rel}")
-                return result
-            target_dir.parent.mkdir(parents=True, exist_ok=True)
-            if self._symlink(target_dir, source_dir, is_dir=True):
-                result.created.append(f"{target_rel} -> {source_rel}")
-                return result
-            result.notes.append(
-                f"Could not create the symlink {target_rel} -> {source_rel} (symlinks unavailable on this "
-                f"platform). Files were copied instead; re-run `covener init` after editing {entries}/."
-            )
+                result.updated.append(f"{target_rel} (directory link replaced by per-entry links)")
+            else:
+                self._remove(target_dir)
+                result.notes.append(
+                    f"{target_rel} was a link to {source_rel}; replaced with one link per {kind[:-1]}, "
+                    "which is the form every tool documents."
+                )
+
+        # git checked an old committed directory link out as a text file (core.symlinks=false).
+        if not dry_run and self._is_git_symlink_placeholder(target_dir, source_dir):
+            target_dir.unlink()
+
+        if not target_dir.exists() and not dry_run:
             target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Existing real directory: link (or copy) each of our entries into it.
-        if entries == "skills":
+        if kind == "skills":
             sources = self._skill_dirs(source_dir)
+            if not sources and dry_run:  # skills/ is not written yet in a dry run
+                sources = [source_dir / name for name in ("frontend", "backend")]
         else:
             sources = self._agent_files(source_dir)
             if not sources and dry_run:  # agents/ is not written yet in a dry run
                 sources = [source_dir / f"{name}.md" for name in config.active_agents().values()]
+
         for source in sources:
             link = target_dir / source.name
             link_rel = _rel(root, link)
-            if link.is_symlink():
+            if link.is_symlink() or (sys.platform == "win32" and _is_junction(link)):
                 if _points_into(link, source_dir):
                     result.unchanged.append(link_rel)
                 else:
                     result.skipped.append(link_rel)
                     result.notes.append(f"{link_rel} links elsewhere; left untouched.")
                 continue
-            if link.exists():
+            if self._is_git_symlink_placeholder(link, source):
+                if not dry_run:
+                    link.unlink()
+                result.notes.append(
+                    f"{link_rel} was a symlink placeholder left by git (core.symlinks=false); recreated the link. "
+                    "Consider `git config core.symlinks true` before cloning."
+                )
+            elif link.exists():
                 content = source.read_text(encoding="utf-8") if source.is_file() else None
                 if link.is_file() and content is not None and link.read_text(encoding="utf-8") == content:
                     result.unchanged.append(link_rel)
                 else:
                     result.skipped.append(link_rel)
                     result.notes.append(
-                        f"{link_rel} is the project's own file; left untouched. Remove it to let Covener link "
+                        f"{link_rel} is the project's own; left untouched. Remove it to let Covener link "
                         f"{_rel(root, source)} there."
                     )
                 continue
@@ -199,14 +217,14 @@ class Adapter:
                 continue
             if self._symlink(link, source, is_dir=source.is_dir()):
                 result.created.append(link_rel)
-            elif source.is_dir():
-                shutil.copytree(source, link)
-                result.created.append(link_rel)
-                result.notes.append(f"{link_rel} was copied because symlinks are unavailable here.")
-            else:
-                shutil.copyfile(source, link)
-                result.created.append(link_rel)
-                result.notes.append(f"{link_rel} was copied because symlinks are unavailable here.")
+                continue
+            copy = shutil.copytree if source.is_dir() else shutil.copyfile
+            copy(source, link)  # type: ignore[operator]
+            result.created.append(link_rel)
+            result.notes.append(
+                f"{link_rel} was copied because symlinks are unavailable here; re-run `covener init` "
+                f"after editing {kind}/."
+            )
 
         # Dangling links into ours belong to renamed or deleted entries.
         for entry in sorted(target_dir.iterdir()) if target_dir.is_dir() else []:
@@ -220,12 +238,15 @@ class Adapter:
         return result
 
     def link_skills(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:
-        """Link this tool's skills directory, plus the portable ``.agents/skills`` location."""
+        """Link the skills into this tool's directory and into the portable ``.agents/skills``."""
         result = AdapterResult(tool=self.key)
         source_dir = root / config.paths["skills"]
-        for target in (self.skills_dir(root), root / PORTABLE_SKILLS_DIR):
-            if target is not None:
-                self.link_dir(root, source_dir, target, config, dry_run, result)
+        targets = [root / PORTABLE_SKILLS_DIR]
+        own = self.skills_dir(root)
+        if own is not None:
+            targets.insert(0, own)
+        for target in targets:
+            self.link_dir(root, source_dir, target, config, dry_run, result)
         return result
 
     def link_all(self, root: Path, config: Config, dry_run: bool = False) -> AdapterResult:

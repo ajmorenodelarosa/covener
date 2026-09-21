@@ -36,8 +36,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
 - **The backlog is derived, never written.** Approved specs, open bugs and open tasks that are not in
   an open change, bugs first, then by priority. Nothing to maintain, nothing for a team to collide on.
 - **Skills carry your conventions.** `skills/<name>/SKILL.md` in the Agent Skills open standard,
-  linked into `.claude/skills`, `.cursor/skills` and `.agents/skills`. `frontend` and `backend` ship
-  as templates to fill in, and a convention broken twice becomes a line in one of them.
+  linked one by one into `.claude/skills` (Claude Code) and `.agents/skills` (Cursor, Codex,
+  Copilot). `frontend` and `backend` ship as templates to fill in, and a convention broken twice
+  becomes a line in one of them.
 - **Knowledge is evidence.** Regulations and contracts in `knowledge/` become a page-anchored corpus
   with a citation graph; specs cite `file#page-N`, the reviewer verifies, and `status` flags dangling
   references.
@@ -109,8 +110,8 @@ changes/<name>/design.md            how it will be built; optional, archived wit
 changes/<name>/work.md              checklist, summary, decisions, QA, review, your feedback
 changes/archive/YYYY-MM-DD-<name>/  finished changes: the history of the product
 knowledge/                          optional: domain documents, their Markdown, INDEX.md, CITATIONS.md
-skills/<name>/SKILL.md              this project's conventions; .claude/skills, .cursor/skills and .agents/skills link here
-agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link here
+skills/<name>/SKILL.md              this project's conventions; .claude/skills and .agents/skills link to each skill
+agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link to each file
 AGENTS.md                           a small block every coding agent reads (CLAUDE.md imports it)
 .covener/config.yaml                role to agent mapping and tools; nothing else
 ```
@@ -387,13 +388,29 @@ skills/<name>/scripts/…       scripts it runs instead of writing code
 ```
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard: a folder with a `SKILL.md`
-whose front matter carries `name` (matching the folder) and `description`. `covener init` links the
-folder into `.claude/skills` (Claude Code), `.cursor/skills` (Cursor) and `.agents/skills` (the
-portable location Codex and others read), so there is one copy and editing it is editing the file.
+whose front matter carries `name` (matching the folder) and `description`. There is one copy of each
+skill, and `covener init` links it where every harness looks:
+
+| Harness | Reads | How Covener covers it |
+|---|---|---|
+| Claude Code | `.claude/skills/` only | a symlink per skill in `.claude/skills/`, the form the docs document as supported |
+| Cursor | `.agents/skills/`, `.cursor/skills/`, `.claude/skills/` | natively through `.agents/skills/` |
+| Codex CLI | `.agents/skills/`, `.codex/skills/` | natively through `.agents/skills/` |
+| GitHub Copilot | `.github/skills/`, `.claude/skills/`, `.agents/skills/` | natively through either |
+
+The links are per skill, not one link for the whole directory: Claude Code documents "a
+`<skill-name>` entry ... can be a symlink to a directory elsewhere on disk", while a symlinked
+skills directory is undocumented and has open discovery bugs. Per-entry links also mean your own
+skills can sit in `.claude/skills/` next to Covener's, untouched. Agents are linked the same way,
+one file at a time. Where symlinks are unavailable (Windows without Developer Mode) the entries are
+copied and `init` says so; re-run it after editing.
 
 `frontend` and `backend` ship as templates with the sections that matter and a done checklist.
 Until you fill them in, `covener status` marks them `(template)` and tells you to, because an empty
 skill is worse than none: the agent falls back on generic habits.
+
+Adding a skill is creating the folder and running `covener init` once, so the links exist for every
+tool. Editing one needs nothing: the link points at your file.
 
 **How the team uses them.** The engineer reads the skill for the layer it is touching before writing
 code and follows its checklist. QA takes its test expectations from the same file. The reviewer
@@ -482,8 +499,9 @@ Python 3.10+. One runtime dependency (PyYAML). No network. `-C <dir>` works on e
 between `<!-- covener:start -->` and `<!-- covener:end -->`; re-running `init` refreshes only that
 block. Nothing of yours is overwritten or moved. If your `AGENTS.md` carries stack conventions, they
 belong in `skills/`, which agents load only when relevant: `init` says so when it finds one. An
-existing `CLAUDE.md` gets an `@AGENTS.md` import; existing `.claude/agents/`, `.cursor/skills/` and
-similar directories keep their files and get per-entry links; a legacy `.cursorrules` is reported.
+existing `CLAUDE.md` gets an `@AGENTS.md` import; existing `.claude/agents/`, `.claude/skills/` and
+similar directories keep their own entries and gain one link per Covener agent or skill; a legacy
+`.cursorrules` is reported.
 
 **Windows.** Links become directory junctions when symlinks are not permitted. Clone with
 `git config core.symlinks true`, or run `covener init` after cloning to repair the links.
