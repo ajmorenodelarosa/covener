@@ -4,8 +4,8 @@ Thanks for your interest. Covener is deliberately small; the best contributions 
 
 ## Ground rules
 
-- One spec per feature, one work log per spec per sprint, five agents, two commands. A change that
-  adds an option, a file agents must read, or a command needs a strong reason.
+- One file per spec, bug and task; one folder per change; five roles. A pull request that adds an
+  option, a file agents must read, or a command needs a strong reason.
 - Follow what the ecosystem already settled (AGENTS.md, Claude Code and Cursor subagent format,
   OpenSpec's team model) instead of inventing a convention.
 - Human approval stays a checkable rule in a file.

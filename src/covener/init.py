@@ -225,7 +225,7 @@ def initialize(
     paths = cfg.paths
 
     if not dry_run:
-        for directory in (paths["specs"], paths["bugs"], paths["tasks"], paths["sprints"], paths["agents"], ".covener"):
+        for directory in (paths["specs"], paths["bugs"], paths["tasks"], paths["changes"], paths["agents"], ".covener"):
             (root / directory).mkdir(parents=True, exist_ok=True)
 
     if first_init:
@@ -236,8 +236,9 @@ def initialize(
     _write(root, f"{paths['specs']}/TEMPLATE.md", read_resource("templates/spec.md"), report)
     _write(root, f"{paths['bugs']}/TEMPLATE.md", read_resource("templates/bug.md"), report)
     _write(root, f"{paths['tasks']}/TEMPLATE.md", read_resource("templates/task.md"), report)
-    _write(root, f"{paths['sprints']}/TEMPLATE/sprint.md", read_resource("templates/sprint.md"), report)
-    _write(root, f"{paths['sprints']}/TEMPLATE/work.md", read_resource("templates/work.md"), report)
+    _write(root, f"{paths['changes']}/TEMPLATE/change.md", read_resource("templates/change.md"), report)
+    _write(root, f"{paths['changes']}/TEMPLATE/design.md", read_resource("templates/design.md"), report)
+    _write(root, f"{paths['changes']}/TEMPLATE/work.md", read_resource("templates/work.md"), report)
 
     # Agents: the default team on first install; afterwards only on request.
     default_role_by_name = {name: role for role, name in DEFAULT_AGENT_NAMES.items()}

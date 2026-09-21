@@ -23,7 +23,7 @@ PATHS: dict[str, str] = {
     "specs": "specs",
     "bugs": "bugs",
     "tasks": "tasks",
-    "sprints": "sprints",
+    "changes": "changes",
     "agents": "agents",
 }
 

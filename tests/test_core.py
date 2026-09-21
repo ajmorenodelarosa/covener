@@ -57,12 +57,12 @@ def test_config_defaults_render_and_validation(tmp_path: Path) -> None:
 def test_states_yaml_matches_code() -> None:
     data = yaml.safe_load(STATES_YAML.read_text(encoding="utf-8"))
     assert data["spec"]["states"] == list(states.SPEC_STATES)
-    assert data["sprint"]["states"] == list(states.SPRINT_STATES)
+    assert data["change"]["states"] == list(states.CHANGE_STATES)
     assert data["bug"]["states"] == list(states.BUG_STATES)
     assert data["task"]["states"] == list(states.TASK_STATES)
     assert "draft" in data["spec"]["transitions"]["done"]
     assert data["work"]["states"] == list(states.WORK_STATES)
-    assert {tuple(t) for t in data["sprint"]["human_gated"]} == set(states.SPRINT_HUMAN_GATED)
+    assert {tuple(t) for t in data["change"]["human_gated"]} == set(states.CHANGE_HUMAN_GATED)
     assert {tuple(t) for t in data["spec"]["human_gated"]} == set(states.SPEC_HUMAN_GATED)
 
 

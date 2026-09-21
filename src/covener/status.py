@@ -10,7 +10,7 @@ from typing import Any
 
 from . import states
 from .config import Config
-from .repo import Repository, load_repository
+from .repo import ItemKey, Repository, load_repository
 from .validate import Report, validate
 
 
@@ -23,8 +23,8 @@ class StatusSnapshot:
     bugs: dict[str, int]
     tasks: dict[str, int]
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
-    sprints: list[dict[str, Any]]  # open sprints: id, owner, status, items [{kind, id, state, tasks}]
-    done: list[dict[str, str]]  # kind, id, sprint, closed
+    changes: list[dict[str, Any]]  # open changes: name, status, state, items, checklist, design
+    done: list[dict[str, str]]  # kind, id, change, closed
     pending_human_review: int
     pending_spec_approval: int
     errors: int
@@ -43,7 +43,7 @@ class StatusSnapshot:
             "bugs": self.bugs,
             "tasks": self.tasks,
             "backlog": self.backlog,
-            "sprints": self.sprints,
+            "changes": self.changes,
             "done": self.done,
             "governance": {
                 "pending_human_review": self.pending_human_review,
@@ -68,7 +68,7 @@ def _counts(repo: Repository, kind: str, keep: Any) -> dict[str, int]:
 
 
 def build_snapshot(repo: Repository, report: Report, domain: str | None = None) -> StatusSnapshot:
-    def keep(key: tuple[str, str]) -> bool:
+    def keep(key: ItemKey) -> bool:
         return domain is None or repo.domain_of(key) == domain
 
     vision_state = "OK"
@@ -79,34 +79,33 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
     elif report.count("vision.placeholder"):
         vision_state = "TEMPLATE"
 
-    sprints: list[dict[str, Any]] = []
+    changes: list[dict[str, Any]] = []
     awaiting = 0
-    for sprint in repo.open_sprints():
-        if not any(keep(key) for key in sprint.items) and domain is not None:
+    for change in repo.open_changes():
+        if domain is not None and change.items and not any(keep(key) for key in change.items):
             continue
-        entries = [
+        awaiting += change.state == "awaiting_feedback"
+        changes.append(
             {
-                "kind": k,
-                "id": i,
-                "state": sprint.work_state((k, i)),
-                "checklist": list(sprint.checklist.get((k, i), (0, 0))),
+                "name": change.name,
+                "status": change.status,
+                "state": change.state,
+                "items": [f"{kind} {item_id}" for kind, item_id in change.items],
+                "checklist": list(change.checklist),
+                "design": change.has_design,
             }
-            for k, i in sprint.items
-            if keep((k, i))
-        ]
-        awaiting += sum(1 for e in entries if e["state"] == "awaiting_feedback")
-        sprints.append({"id": sprint.id, "owner": sprint.owner, "status": sprint.status, "items": entries})
+        )
 
     done: list[dict[str, str]] = []
     for item in repo.items:
         if item.status == "done" and keep(item.key):
-            approving = [s for s in repo.sprints_of(item.key) if s.work_state(item.key) == "approved"]
+            approving = [c for c in repo.changes_of(item.key) if c.approved]
             last = approving[-1] if approving else None
             done.append(
                 {
                     "kind": item.kind,
                     "id": item.id,
-                    "sprint": last.id if last else "",
+                    "change": last.name if last else "",
                     "closed": last.closed if last else "",
                 }
             )
@@ -124,7 +123,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
             for i in repo.backlog()
             if keep(i.key)
         ],
-        sprints=sprints,
+        changes=changes,
         done=done,
         pending_human_review=awaiting,
         pending_spec_approval=specs.get("draft", 0),
@@ -143,10 +142,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
 
 
 def _count_lines(title: str, counts: dict[str, int]) -> list[str]:
-    lines = [title]
-    for key, value in counts.items():
-        lines.append(f"  {key.capitalize()}: {value}")
-    return lines
+    return [title] + [f"  {key.capitalize()}: {value}" for key, value in counts.items()]
 
 
 def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
@@ -155,29 +151,30 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
     lines += _count_lines("Specs", snapshot.specs)
     if snapshot.domains:
         lines.append("  Domains: " + ", ".join(f"{d} {n}" for d, n in snapshot.domains.items()))
-    lines += [""] + _count_lines("Bugs", snapshot.bugs)
-    if snapshot.tasks["total"]:
-        lines += [""] + _count_lines("Tasks", snapshot.tasks)
+    for title, counts in (("Bugs", snapshot.bugs), ("Tasks", snapshot.tasks)):
+        if counts["total"]:
+            lines += [""] + _count_lines(title, counts)
     lines += ["", "Backlog", f"  Items: {len(snapshot.backlog)}"]
     for entry in snapshot.backlog:
         lines.append(f"  - {entry['kind']} {entry['id']} (priority {entry['priority']})")
-    lines += ["", "Sprints"]
-    if snapshot.sprints:
-        for sprint in snapshot.sprints:
-            approved = sum(1 for e in sprint["items"] if e["state"] == "approved")
-            owner = f", {sprint['owner']}" if sprint["owner"] else ""
-            lines.append(f"  {sprint['id']} ({sprint['status']}{owner}): approved {approved}/{len(sprint['items'])}")
-            for entry in sprint["items"]:
-                done_n, total = entry["checklist"]
-                progress = f", checklist {done_n}/{total}" if total else ""
-                lines.append(f"    - {entry['kind']} {entry['id']}: {entry['state'].replace('_', ' ')}{progress}")
+    lines += ["", "Changes"]
+    if snapshot.changes:
+        for change in snapshot.changes:
+            done_n, total = change["checklist"]
+            progress = f", checklist {done_n}/{total}" if total else ""
+            design = ", design" if change["design"] else ""
+            lines.append(
+                f"  {change['name']} ({change['status']}): {change['state'].replace('_', ' ')}{progress}{design}"
+            )
+            for item in change["items"]:
+                lines.append(f"    - {item}")
     else:
         lines.append("  Open: none")
     if snapshot.done:
         lines += ["", "Done"]
         for entry in snapshot.done:
             when = f" {entry['closed']}" if entry["closed"] else ""
-            where = f"{entry['sprint']}{when}" if entry["sprint"] else "no approving sprint"
+            where = f"{entry['change']}{when}" if entry["change"] else "no approving change"
             lines.append(f"  - {entry['kind']} {entry['id']} ({where})")
     lines += ["", "Governance"]
     lines.append(f"  Pending human review: {snapshot.pending_human_review}")

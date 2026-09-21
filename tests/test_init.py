@@ -23,8 +23,9 @@ def test_fresh_init_creates_structure_and_links(tmp_path: Path) -> None:
         "specs/TEMPLATE.md",
         "bugs/TEMPLATE.md",
         "tasks/TEMPLATE.md",
-        "sprints/TEMPLATE/sprint.md",
-        "sprints/TEMPLATE/work.md",
+        "changes/TEMPLATE/change.md",
+        "changes/TEMPLATE/design.md",
+        "changes/TEMPLATE/work.md",
         "AGENTS.md",
         "CLAUDE.md",
     ):

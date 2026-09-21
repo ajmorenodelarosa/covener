@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import states
-from .repo import Repository
+from .repo import ItemKey, Repository
 from .roles import ROLE_KEYS
 
 PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:", "{{")
@@ -27,19 +27,19 @@ class Issue:
 class Report:
     issues: list[Issue] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
-    # The item or sprint items each action is about, so a domain view can keep only its own actions.
-    action_items: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
-
-    def act(self, text: str, *items: tuple[str, str]) -> None:
-        self.actions.append(text)
-        if items:
-            self.action_items.setdefault(text, []).extend(items)
+    # The items each action is about, so a domain view keeps only its own next steps.
+    action_items: dict[str, list[ItemKey]] = field(default_factory=dict)
 
     def error(self, code: str, path: str, message: str) -> None:
         self.issues.append(Issue("error", code, path, message))
 
     def warning(self, code: str, path: str, message: str) -> None:
         self.issues.append(Issue("warning", code, path, message))
+
+    def act(self, text: str, *items: ItemKey) -> None:
+        self.actions.append(text)
+        if items:
+            self.action_items.setdefault(text, []).extend(items)
 
     @property
     def errors(self) -> list[Issue]:
@@ -93,15 +93,8 @@ def _check_items(repo: Repository, report: Report) -> None:
             continue
         if item.kind == "spec" and item.status == "draft":
             report.act(f"Review and approve {item.path} (draft)", item.key)
-        if item.status == states.READY_STATE[item.kind] and any(m in item.body for m in PLACEHOLDER_MARKERS):
+        if item.ready and any(marker in item.body for marker in PLACEHOLDER_MARKERS):
             report.warning(f"{item.kind}.placeholder", item.path, f"{item.kind} still contains template placeholders")
-        open_ = repo.sprints_of(item.key, open_only=True)
-        if len(open_) > 1:
-            report.error(
-                f"{item.kind}.in-several-sprints",
-                item.path,
-                "listed in more than one open sprint: " + ", ".join(s.id for s in open_),
-            )
         if item.spec and ("spec", item.spec) not in repo.item_by_key:
             report.warning(f"{item.kind}.unknown-spec", item.path, f"spec {item.spec!r} does not exist")
         for reference in item.references:
@@ -112,94 +105,85 @@ def _check_items(repo: Repository, report: Report) -> None:
                     item.path,
                     f"references {reference!r} but that file does not exist",
                 )
-        if item.status == "done" and not any(s.work_state(item.key) == "approved" for s in repo.sprints_of(item.key)):
+        open_changes = repo.changes_of(item.key, open_only=True)
+        if len(open_changes) > 1:
+            report.error(
+                f"{item.kind}.in-several-changes",
+                item.path,
+                "listed in more than one open change: " + ", ".join(c.name for c in open_changes),
+            )
+        if item.status == "done" and not any(c.approved for c in repo.changes_of(item.key)):
             report.error(
                 f"{item.kind}.done-without-approval",
                 item.path,
-                f"{item.kind} is 'done' but no sprint work log ends with 'Approved: Yes' for it",
+                f"{item.kind} is 'done' but no change work log ends with 'Approved: Yes' for it",
             )
+        if item.ready and not open_changes and item.kind == "bug":
+            report.act(f"Start a change for bug {item.id}: covener change start <name> --bug {item.id}", item.key)
 
 
-def _check_sprints(repo: Repository, report: Report) -> None:
-    by_owner: dict[str, list[str]] = {}
-    for sprint in repo.open_sprints():
-        by_owner.setdefault(sprint.owner, []).append(sprint.id)
-    for owner, ids in by_owner.items():
-        if len(ids) > 1:
-            who = f"owner '{owner}'" if owner else "no owner"
-            report.warning(
-                "sprint.multiple-open",
-                repo.config.paths["sprints"],
-                f"{len(ids)} open sprints with {who}: {', '.join(ids)} (fine for a hotfix; otherwise close one first)",
-            )
-    for sprint in repo.sprints:
-        where = f"{sprint.path}/sprint.md"
-        if sprint.status not in states.SPRINT_STATES:
+def _check_changes(repo: Repository, report: Report) -> None:
+    seen: dict[str, str] = {}
+    for change in repo.changes:
+        where = f"{change.path}/change.md"
+        if change.name in seen:
+            report.error("change.duplicate-name", where, f"another change is already called {change.name!r}")
+        seen[change.name] = change.path
+        if change.status not in states.CHANGE_STATES:
             report.error(
-                "sprint.invalid-status",
+                "change.invalid-status",
                 where,
-                f"status {sprint.status or 'missing'!r} is not one of {', '.join(states.SPRINT_STATES)}",
+                f"status {change.status or 'missing'!r} is not one of {', '.join(states.CHANGE_STATES)}",
             )
             continue
-        if not sprint.owner:
-            report.warning("sprint.no-owner", where, "sprint has no 'owner'; needed to work in a team")
-        if sprint.archived and sprint.status != "closed":
-            report.error("sprint.archived-open", where, f"sprint is in the archive but its status is {sprint.status!r}")
-        elif sprint.status == "closed" and not sprint.archived:
-            report.act(f"Move {sprint.path} to sprints/archive/<YYYY-MM-DD>-{sprint.id} (closed)", *sprint.items)
-        if not sprint.items:
-            report.warning("sprint.empty", where, "sprint lists no specs, bugs or tasks")
-        for key in sprint.items:
-            kind, item_id = key
-            work_file = sprint.work_file(key)
-            state = sprint.work_state(key)
-            if sprint.status == "closed":
-                # History: only the approval rule applies; the item may have moved on since.
-                if state != "approved":
-                    report.error(
-                        "sprint.closed-without-approval",
-                        where,
-                        f"sprint is closed but {kind} {item_id} was not approved in {work_file} "
-                        f"(state: {state.replace('_', ' ')})",
-                    )
-                else:
+        if change.archived and change.status != "done":
+            report.error("change.archived-open", where, f"change is in the archive but its status is {change.status!r}")
+        elif change.status == "done" and not change.archived:
+            report.act(f"Archive {change.name}: covener change archive {change.name}", *change.items)
+        if not change.items:
+            report.warning("change.no-items", where, "change lists no spec, bug or task")
+        if not change.has_work_log:
+            report.error("change.no-work-log", change.path, "change has no work.md")
+        state = change.state
+        if change.status == "done":
+            # History: only the approval rule applies; items may have moved on since.
+            if not change.approved:
+                report.error(
+                    "change.done-without-approval",
+                    where,
+                    f"change is 'done' but {change.work_file} does not end with 'Approved: Yes' "
+                    f"(state: {state.replace('_', ' ')})",
+                )
+            else:
+                for key in change.items:
                     item = repo.item_by_key.get(key)
                     if item is not None and item.status != "done":
                         report.warning(
-                            f"{kind}.not-done",
+                            f"{key[0]}.not-done",
                             item.path,
-                            f"work approved in closed {sprint.id} but status is {item.status!r}",
+                            f"work approved in change {change.name} but status is {item.status!r}",
                         )
-                continue
+            continue
+        for key in change.items:
+            kind, item_id = key
             item = repo.item_by_key.get(key)
             if item is None:
-                report.error("sprint.unknown-item", where, f"lists unknown {kind} {item_id!r}")
+                report.error("change.unknown-item", where, f"lists unknown {kind} {item_id!r}")
                 continue
-            ready = states.READY_STATE[kind]
-            if item.status not in (ready, "done"):
+            if not item.ready and item.status != "done":
                 report.error(
-                    "sprint.item-not-ready",
+                    "change.item-not-ready",
                     where,
-                    f"{item.path} is {item.status!r}; a sprint only takes {ready} {kind}s",
+                    f"{item.path} is {item.status!r}; a change only takes {states.READY_STATE[kind]} {kind}s",
                 )
-            if state == "awaiting_feedback":
-                report.act(f"Give feedback on {kind} {item_id} in {work_file}", key)
-            elif state == "changes_requested":
-                report.act(f"Agents: rework {kind} {item_id} from the feedback in {work_file}", key)
-            elif sprint.status == "review" and state in {"not_started", "in_progress"}:
-                report.warning(
-                    "sprint.review-without-work", where, f"sprint is in review but {kind} {item_id} has no work"
-                )
-        if sprint.status == "review" and sprint.items and all(sprint.work_state(k) == "approved" for k in sprint.items):
-            report.act(f"Close {sprint.id}: everything is approved", *sprint.items)
-        if sprint.status != "closed":
-            for key in sprint.work:
-                if key not in sprint.items:
-                    report.warning(
-                        "work.not-in-sprint",
-                        sprint.work_files[key],
-                        f"work log for {key[0]} {key[1]!r} but the sprint does not list it (carry-over?)",
-                    )
+        if state == "awaiting_feedback":
+            report.act(f"Give feedback on change {change.name} in {change.work_file}", *change.items)
+        elif state == "changes_requested":
+            report.act(f"Agents: rework {change.name} from the feedback in {change.work_file}", *change.items)
+        elif state == "approved" and change.status != "done":
+            report.act(f"Close {change.name}: your approval is in {change.work_file}", *change.items)
+        elif change.status == "review" and state in {"not_started", "in_progress"}:
+            report.warning("change.review-without-work", where, "change is in review but its work log has no entry")
 
 
 def validate(repo: Repository) -> Report:
@@ -209,6 +193,6 @@ def validate(repo: Repository) -> Report:
     _check_vision(repo, report)
     _check_agents(repo, report)
     _check_items(repo, report)
-    _check_sprints(repo, report)
+    _check_changes(repo, report)
     report.actions = list(dict.fromkeys(report.actions))
     return report

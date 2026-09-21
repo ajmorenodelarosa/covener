@@ -1,41 +1,36 @@
 # Covener state model. Code validates it; agents reason within it.
 version: 1
 
-spec:                       # specs/<id>.md -> status:   what the product is (a living document)
+spec:                       # specs/[<domain>/]<name>.md -> status:   what the product is (living)
   states: [draft, approved, done]
   transitions:
     draft: [approved]       # human approves the text
-    approved: [draft, done] # done only after the work was approved in a sprint work log
+    approved: [draft, done] # done only after a change implemented it and the human approved the work
     done: [draft]           # editing a done spec (extend, change or remove a requirement) reopens it
   human_gated: [[draft, approved], [approved, done]]
 
 bug:                        # bugs/<id>.md -> status:    what is wrong
   states: [open, done]
-  transitions:
-    open: [done]            # done only after the fix was approved in a sprint work log
-    done: []
+  transitions: { open: [done], done: [] }
   human_gated: [[open, done]]
 
-task:                       # tasks/<id>.md -> status:   work that changes neither what the product is nor fixes a bug
+task:                       # tasks/<id>.md -> status:   work that changes neither
   states: [open, done]
-  transitions:
-    open: [done]            # done only after the work was approved in a sprint work log
-    done: []
+  transitions: { open: [done], done: [] }
   human_gated: [[open, done]]
 
-sprint:                     # sprints/<name>/sprint.md -> owner, status, specs, bugs, tasks
-  states: [active, review, closed]
+change:                     # changes/<name>/change.md -> status:   the unit of work
+  states: [open, review, done]
   transitions:
-    active: [review]        # agents finished; feedback requested
-    review: [active, closed]
-  human_gated: [[review, closed]]
+    open: [review]          # agents finished; feedback requested
+    review: [open, done]
+  human_gated: [[review, done]]
   rules:
-    - one sprint, one owner (owner: in sprint.md); one open sprint per owner is the norm (a hotfix may be a second)
-    - an item is in at most one open sprint
-    - a sprint takes approved specs, open bugs and open tasks; its scope does not change once active
-    - a sprint closes only when every item in it ends with "Approved: Yes"
-    - a closed sprint is moved to sprints/archive/YYYY-MM-DD-<name>/
+    - a change takes approved specs, open bugs and open tasks
+    - an item is in at most one open change
+    - a change is done only when its work log ends with "Approved: Yes"
+    - "`covener change archive <name>` refuses without that approval, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"
 
-work:                       # derived from sprints/<name>/{specs,bugs,tasks}/<id>.md, never stored
+work:                       # derived from changes/<name>/work.md, never stored
   states: [not_started, in_progress, awaiting_feedback, changes_requested, approved]
   rule: 'the last "## ..." entry decides (the ## Checklist does not count); a "## Feedback" entry carries Approved: Yes or No'

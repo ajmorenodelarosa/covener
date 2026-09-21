@@ -1,4 +1,4 @@
-"""Command-line entry point. Intentionally small: ``init`` and ``status``."""
+"""Command-line entry point: ``init``, ``status``, ``change``, plus optional knowledge and serve."""
 
 from __future__ import annotations
 
@@ -38,6 +38,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="install the default definition for any configured role whose agents/<name>.md is missing",
     )
 
+    change_parser = subparsers.add_parser("change", help="the unit of work: start one, archive it once approved")
+    change_sub = change_parser.add_subparsers(dest="change_command", required=True)
+    start = change_sub.add_parser("start", help="create changes/<name>/ for a spec, bug or task")
+    start.add_argument("name", help="lowercase words separated by hyphens, e.g. account-closure")
+    start.add_argument("--spec", action="append", default=[], metavar="ID", help="an approved spec (repeatable)")
+    start.add_argument("--bug", action="append", default=[], metavar="ID", help="an open bug (repeatable)")
+    start.add_argument("--task", action="append", default=[], metavar="ID", help="an open task (repeatable)")
+    start.add_argument("--title", default="", help="one line describing the change")
+    archive = change_sub.add_parser(
+        "archive", help="mark the change and its items done and move it to changes/archive/ (needs your approval)"
+    )
+    archive.add_argument("name")
+
     knowledge = subparsers.add_parser("knowledge", help="project knowledge: documents agents consult with evidence")
     knowledge_sub = knowledge.add_subparsers(dest="knowledge_command", required=True)
     kb = knowledge_sub.add_parser("build", help="convert knowledge/ sources, index, citation graph, Oracle graph")
@@ -49,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("serve", help="run the covener MCP server over stdio (status, search_knowledge)")
 
     status_parser = subparsers.add_parser(
-        "status", help="deterministic overview: backlog, sprints, issues, what is next"
+        "status", help="deterministic overview: backlog, open changes, issues, what is next"
     )
     status_parser.add_argument("--json", action="store_true", help="machine-readable output")
     status_parser.add_argument(
@@ -121,6 +134,23 @@ def cmd_knowledge(args: argparse.Namespace) -> int:
         return 2
 
 
+def cmd_change(args: argparse.Namespace) -> int:
+    from . import change as change_module
+
+    try:
+        root = _root(args)
+        config = load_config(root)
+        if args.change_command == "start":
+            report = change_module.start(root, config, args.name, args.spec, args.bug, args.task, args.title)
+        else:
+            report = change_module.archive(root, config, args.name)
+    except (ConfigError, change_module.ChangeError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(report.render())
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from .mcp_server import serve
 
@@ -139,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_init(args)
     if args.command == "status":
         return cmd_status(args)
+    if args.command == "change":
+        return cmd_change(args)
     if args.command == "knowledge":
         return cmd_knowledge(args)
     if args.command == "serve":

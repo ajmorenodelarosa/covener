@@ -21,45 +21,49 @@ pip install covener && covener init
 Covener is a repository layout, a deterministic checker and a set of agent definitions that turn
 Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team you can govern.
 
-- **Specifications, bugs and tasks are files** with a status. What the product is, where it
-  deviates, and what has to be done never mix and never grow. Specs are grouped by domain folder
-  (`specs/billing/`, `specs/user-management/`), so an agent reads a whole domain before changing it.
-- **Sprints hold the work**: one work log per item with a checklist, the agents' summaries,
-  decisions and reviews, and your feedback. Closed sprints are archived; nothing is stored twice.
-- **Built for teams.** Each developer runs their own sprint with their own agents, in parallel,
-  on their own branch; the layout is designed so they never collide. A lead reviews the sprint from
-  its work logs and the reviewer agent's findings, and reads code where those point.
-- **Approval is a rule in a file.** An item is `done` only when a human wrote `Approved: Yes` in its
-  work log. `covener status --strict` fails CI when that rule, or any consistency rule, is broken.
-- **Knowledge is evidence.** Regulations, contracts and procedures in `knowledge/` become a
-  page-anchored corpus with a citation graph and an optional semantic graph; agents cite
-  `file#page-N`, reviewers verify, and `status` flags dangling references.
-- **The core runs no server and calls no model.** Once initialised, the repository works without
-  the package. Two commands for the method; the knowledge layer and the MCP server are optional extras.
+- **Specs are the source of truth.** `specs/<domain>/<name>.md` says what the product must do,
+  grouped by domain so an agent reads a whole domain before changing it. Bugs and tasks are one file
+  each. None of them holds design, history or chat.
+- **The change is the unit of work.** `covener change start account-closure --spec privacy/account-closure`
+  creates a folder with the design, the checklist and the work log. One item, one change, one branch.
+  No sprints and no iteration ceremony: you go item by item.
+- **Design lives with the change, not with the product.** `design.md` holds the approach, the flows,
+  the data and the alternatives rejected. It is archived with the change instead of rotting inside
+  the spec.
+- **Approval is a rule that code enforces.** `covener change archive <name>` refuses unless the work
+  log ends with a human `Approved: Yes`; then it marks the items done and files the change under
+  `changes/archive/`. `covener status --strict` fails CI on that rule and every consistency rule.
+- **The backlog is derived, never written.** Approved specs, open bugs and open tasks that are not in
+  an open change, bugs first, then by priority. Nothing to maintain, nothing for a team to collide on.
+- **Knowledge is evidence.** Regulations and contracts in `knowledge/` become a page-anchored corpus
+  with a citation graph; specs cite `file#page-N`, the reviewer verifies, and `status` flags dangling
+  references.
+- **The core runs no server and calls no model.** Once initialised, the repository works without the
+  package. Three commands; the knowledge layer and the MCP server are optional extras.
 
 ## Why Covener
 
-Spec-driven development tools stop at the spec. spec-kit generates a pile of Markdown per feature
-and numbers features so that two developers branching on the same day collide. Kiro writes
-requirements, design and tasks, then treats them as launch documents that drift as soon as code
-changes. BMAD answers the problem with a dozen personas and the process overhead that comes with
-them. OpenSpec tracks changes well, but a spec is still just text an agent can declare done. None of
-them keeps the decisions made while building, none makes human approval something a machine can
-verify, and none can tell you which article of which regulation a requirement comes from.
+Spec-driven development tools stop at the spec. spec-kit generates a pile of Markdown per feature and
+numbers features so that two developers branching on the same day collide. Kiro writes requirements,
+design and tasks, then treats them as launch documents that drift as soon as code changes. BMAD
+answers the problem with a dozen personas and the process overhead that comes with them. OpenSpec
+tracks changes well, but a spec is still text an agent can declare done. None of them keeps the
+decisions made while building, none makes human approval something a machine can verify, and none can
+tell you which article of which regulation a requirement comes from.
 
-Covener does all three. **Every decision, review and human comment is written next to the item it
-belongs to**, so a new session starts from the record instead of from zero. **An item is done only
-when a person wrote `Approved: Yes`**, and `covener status --strict` fails CI otherwise, which makes
-the approval something an auditor can rely on rather than a line in a prompt. **Requirements that
-come from regulations cite their evidence page by page**, backed by a citation graph built without a
-model, so nothing about a law can be hallucinated.
+Covener does all three. **Every decision, review and human comment is written in the change that
+produced it**, so a new session starts from the record instead of from zero, and the archive is the
+history of the product. **An item is done only when a person wrote `Approved: Yes`**, and the command
+that closes a change refuses without it, which makes the approval something an auditor can rely on
+rather than a line in a prompt. **Requirements that come from regulations cite their evidence page by
+page**, backed by a citation graph built without a model, so nothing about a law can be hallucinated.
 
-And it is built for teams. When several developers drive agents, the volume of generated code
-outgrows line-by-line review, and what actually happens is skimming. Covener gives the reviewer a
-map instead: a work log per item that says what was built, what was decided, which test proves
-which criterion, and what the independent reviewer flagged, with file and line, next to the
-requirement it serves. The human reads the code where the map points. All of it with two files per
-item, five roles with hard boundaries, and a layout you can explain in a minute.
+And it is built for teams. When several developers drive agents, the volume of generated code outgrows
+line-by-line review, and what actually happens is skimming. Covener gives the reviewer a map instead:
+one change, one work log that says what was built, what was decided, which test proves which
+criterion, and what the independent reviewer flagged, with file and line. The human reads the code
+where the map points. All of it with three files per change, five roles with hard boundaries, and a
+layout you can explain in a minute.
 
 ## How it works
 
@@ -74,85 +78,88 @@ Then talk to the team in your IDE. Take a bank:
 
 A naive agent deletes the customer. That breaks the law: GDPR grants the right to erasure, but EU
 anti-money-laundering rules require the bank to keep identity and transaction records for five years
-after the relationship ends, and GDPR itself exempts data kept to meet a legal obligation. This is
-the kind of requirement Covener is built for.
+after the relationship ends, and GDPR itself exempts data kept to meet a legal obligation. This is the
+kind of requirement Covener is built for.
 
-| Step | Role | What happens in the repository |
+| Step | Who | What happens in the repository |
 |---|---|---|
-| 1 | product | Reads every spec in `specs/privacy/`, asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/privacy/account-closure.md`: erase marketing, profiling and app data at once; keep KYC and transaction records for five years with restricted access, then erase them. Every criterion cites its article in `references:`. You set `status: approved`. |
-| 2 | planner | Opens `sprints/account-closure/` with the spec (open bugs first) and writes the checklist in the work log. |
-| 3 | engineer, qa, reviewer | Implement, test each criterion, and review architecture, security and compliance: the reviewer opens every cited page and checks the code against its wording. |
-| 4 | planner | Sets the sprint to `review` and tells you what to evaluate. |
-| 5 | you | `Approved: No` with what to change, or `Approved: Yes`. |
-| 6 | planner | Reworks until you approve, marks the spec `done`, archives the sprint. Six months later an auditor asks why a closed customer's passport scan still exists: the spec, the citations, the review and your approval are all in the repository. |
+| 1 | product | Reads every spec in `specs/privacy/`, asks the Knowledge Oracle, finds both obligations and the exemption, and drafts `specs/privacy/account-closure.md` with acceptance criteria and `references:` to the evidence. You set `status: approved`. |
+| 2 | you (or planner) | `covener change start account-closure --spec privacy/account-closure`. The planner is optional: it reads the backlog and proposes the next item when you want it to. |
+| 3 | engineer | Writes `design.md` (approach, flows, retention schedule, alternatives), then the code and the tests, ticking the checklist and logging decisions. |
+| 4 | qa, reviewer | QA maps each criterion to a test; the reviewer checks architecture, security and every cited page. Both log their verdict. |
+| 5 | you | The change goes to `review`. You write `Approved: No` with what to change, or `Approved: Yes`. |
+| 6 | anyone | `covener change archive account-closure`: refused without your approval; with it, the spec becomes `done` and the change is filed by date. Six months later an auditor asks why a closed customer's passport scan still exists: the spec, the citations, the design, the review and your approval are all in the repository. |
 
 ```bash
-covener status        # backlog, sprints, inconsistencies, what to do next
+covener status        # backlog, open changes, inconsistencies, what to do next
 ```
 
 ## Repository layout
 
 ```
 specs/vision.md                     product intent
-specs/<domain>/<name>.md            what the product is: one living file per spec, by domain (draft -> approved -> done)
+specs/<domain>/<name>.md            what the product is (draft -> approved -> done)
 bugs/<id>.md                        what is wrong (open -> done); spec: names the affected spec
-tasks/<id>.md                       work that changes neither: migrations, refactors, upgrades (open -> done)
-sprints/<name>/sprint.md            owner, status, specs, bugs and tasks in scope (active -> review -> closed)
-sprints/<name>/<kind>s/<id>.md      the item's work log: checklist, summary, decisions, QA, review, feedback
-sprints/archive/YYYY-MM-DD-<name>/  closed sprints
+tasks/<id>.md                       work that changes neither: migrations, refactors, upgrades
+changes/<name>/change.md            the unit of work: status and the items it touches
+changes/<name>/design.md            how it will be built; optional, archived with the change
+changes/<name>/work.md              checklist, summary, decisions, QA, review, your feedback
+changes/archive/YYYY-MM-DD-<name>/  finished changes: the history of the product
 knowledge/                          optional: domain documents, their Markdown, INDEX.md, CITATIONS.md
 agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link here
 AGENTS.md                           a small block every coding agent reads (CLAUDE.md imports it)
 .covener/config.yaml                role to agent mapping and tools; nothing else
 ```
 
-**Domains.** The first folder under `specs/` is the domain: `specs/privacy/account-closure.md` has
-the id `privacy/account-closure` and belongs to `privacy`. The Product agent reads the whole domain
-before writing a spec, which is how contradictions and duplicates are caught before they reach code,
-and the reviewer checks a change against its sibling specs. Bugs and tasks stay flat; their `spec:`
-field puts them in the domain of the spec they concern. `covener status --domain privacy` shows only
-that domain: its specs, the bugs and tasks that name them, its sprints and its next actions. Small
-projects can keep `specs/` flat; nothing requires domains.
+**Which file?** If in a year someone must read it to know what the product is, it is a spec. If it
+describes something that is wrong today, it is a bug. If they only need to know it was done, it is a
+task. How you are going to build it is none of those: it is the design of a change.
 
-**Which folder?** If in a year someone must read it to know what the product is, it is a spec. If
-it describes something that is wrong today, it is a bug. If they only need to know it was done, it
-is a task. Specs are living documents: to extend, change or remove a requirement, edit the spec, it
-goes back to `draft`, approve it again, and a sprint carries the change. Its history is the sprints
-that touched it.
+**Domains.** The first folder under `specs/` is the domain: `specs/privacy/account-closure.md` has the
+id `privacy/account-closure`. The Product agent reads the whole domain before writing, which is how
+contradictions and duplicates are caught before they reach code, and the reviewer checks a change
+against its sibling specs. Bugs and tasks stay flat; their `spec:` field puts them in a domain.
+`covener status --domain privacy` shows only that domain. Small projects can keep `specs/` flat.
 
-**No backlog file.** The backlog is every open bug, approved spec and open task that is not in an
-open sprint: bugs first, then by the `priority` field. Reprioritising is a one-line change in one
-file, so a team never fights over a list.
+**Living specs.** To extend, change or remove a requirement you edit the spec; it goes back to
+`draft`, you approve it again, and a change carries it. Its history is the archived changes that
+touched it.
 
-## The work log
+## The change
 
-`sprints/<name>/specs/<id>.md` (or `bugs/<id>.md`, `tasks/<id>.md`) is a chronological log; a spec in a
-domain keeps its path (`sprints/account-closure/specs/privacy/account-closure.md`). Agents add
-entries; you add one.
+A change is a folder. `change.md` says what it covers, `design.md` how it will be built, `work.md`
+what happened.
+
+```bash
+covener change start account-closure --spec privacy/account-closure   # --bug, --task, repeatable
+covener change archive account-closure                                # only with your approval
+```
+
+`start` refuses an item that does not exist, is not ready (a draft spec, a done bug) or is already in
+another open change. `archive` refuses a change whose work log does not end with your `Approved: Yes`;
+when it does, it sets the change and its items to `done` and moves the folder to
+`changes/archive/<date>-<name>/`. The rule is executed, not merely reported.
+
+The work log is chronological. Agents add entries; you add one.
 
 ```markdown
-# privacy/account-closure
+# Account closure and data erasure
 
 ## Checklist
-- [x] closure request endpoint with strong customer authentication
-- [x] immediate erasure of marketing, profiling and app data
-- [x] KYC and transaction records moved to restricted retention with a five-year expiry
-- [x] scheduled erasure job at retention expiry
-- [x] erasure notice to processors (GDPR Art. 19)
-- [ ] customer-facing explanation of what is retained and why
+- [x] closure endpoint with strong customer authentication
+- [x] immediate erasure of marketing and profiling data
+- [x] KYC records moved to restricted retention with a five-year expiry
+- [ ] customer-facing explanation of what is retained
 
 ## Summary
-Closure flow in accounts/closure.py; retention store in compliance/retention.py; nightly expiry job.
-14 tests in tests/test_closure.py, one per acceptance criterion.
+Closure flow in accounts/closure.py; retention store in compliance/retention.py. 14 tests.
 
 ## Decisions
-- 2026-09-14 Retention clock starts at the closure date, not the last transaction (AMLD Art. 40(1)).
-- 2026-09-14 Retained records are readable only by the compliance role; every read is audited.
+- 2026-09-20 Retention clock starts at the closure date, not the last transaction (AMLD Art. 40(1)).
 
 ## QA
 Verdict: pass
-- AC1 test_marketing_data_erased_immediately, AC2 test_kyc_retained_five_years,
-  AC3 test_retained_records_erased_at_expiry, AC4 test_processors_notified.
+- AC1 test_marketing_data_erased_immediately, AC2 test_kyc_retained_five_years.
 
 ## Review
 Verdict: pass with notes
@@ -170,8 +177,8 @@ Support role removed from retention access; retention summary added to the closu
 Approved: Yes
 ```
 
-The last entry is the state: awaiting feedback, changes requested or approved (the checklist does
-not count). `covener status` derives everything from this file.
+The last entry is the state: awaiting feedback, changes requested or approved (the checklist does not
+count). `covener status` derives everything from this file.
 
 ## `covener status`
 
@@ -189,8 +196,8 @@ Specs
   Domains: aml 2, payments 1, privacy 2
 
 Bugs
-  Total: 2
-  Open: 2
+  Total: 1
+  Open: 1
   Done: 0
 
 Tasks
@@ -205,13 +212,12 @@ Backlog
   - spec privacy/consent-management (priority 2)
   - spec payments/sepa-transfers (priority 3)
 
-Sprints
-  account-closure (review, ana): approved 1/2
-    - spec privacy/account-closure: awaiting feedback, checklist 5/6
-    - bug consent-default-on: approved, checklist 2/2
+Changes
+  account-closure (review): awaiting feedback, checklist 5/6, design
+    - spec privacy/account-closure
 
 Done
-  - spec aml/audit-trail (2026-09-01-audit-trail 2026-09-01)
+  - spec aml/audit-trail (2026-09-10-audit-trail 2026-09-10)
 
 Governance
   Pending human review: 1
@@ -221,58 +227,53 @@ Governance
 
 Next
   * Review and approve specs/aml/transaction-monitoring.md (draft)
-  * Give feedback on spec privacy/account-closure in sprints/account-closure/specs/privacy/account-closure.md
+  * Start a change for bug erasure-skips-backups: covener change start <name> --bug erasure-skips-backups
+  * Give feedback on change account-closure in changes/account-closure/work.md
 ```
 
-`--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings,
-`--strict` to fail CI on errors. No model is involved; it only reads files.
+`--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings, `--strict`
+to fail CI on errors. No model is involved; it only reads files.
 
-Errors are the rules that protect your authority and the repository's consistency: an item `done`
-without your `Approved: Yes`; a sprint `closed` with unapproved work; an item in two open sprints; a
-draft spec, a done item or an unknown id in an open sprint; an open sprint in the archive; invalid
-statuses or unparsable files; a missing vision; a configured agent without a definition. Closed
-sprints are history: only the approval rule applies to them, so a spec that later changes never
-breaks CI. A second open sprint for the same owner is a warning, not an error: that is what a
-hotfix looks like.
+Errors are the rules that protect your authority and the repository's consistency: an item or a change
+`done` without your `Approved: Yes`; an item in two open changes; a draft spec or an unknown id in a
+change; an open change in the archive; a change with no work log; invalid statuses or unparsable
+files; a missing vision; a configured agent without a definition. Archived changes are history: only
+the approval rule applies to them, so a spec that later changes never breaks CI.
 
 ## Teams and review
 
 Agents make code cheap and review expensive. Covener answers with two things: a layout where
-developers work in parallel without stepping on each other, and a unit of review that is not the
-diff.
+developers work in parallel without stepping on each other, and a unit of review that is not the diff.
 
 **In parallel, without collisions.**
 
-- One sprint, one owner, one branch, one pull request. Git isolates the work; Covener makes the
-  rules checkable.
-- Sprints are named by what they deliver (`account-closure`), never numbered, so two people
-  branching on the same day cannot collide.
-- The owner is a field in `sprint.md`. One open sprint per owner is the norm; an item is in at most
-  one open sprint. `covener status` flags both after a merge.
-- Specs, bugs and tasks are one file each and there is no backlog file, so there is no shared list
-  to fight over.
-- Closed sprints are archived by date. Everything is committed.
+- One change, one branch, one pull request. Git isolates the work; Covener makes the rules checkable.
+- Changes are named by what they deliver (`account-closure`, `fix-token-refresh`), never numbered, so
+  two people branching on the same day cannot collide.
+- An item is in at most one open change; `covener status` flags a second one after a merge, and
+  `change start` refuses it in the first place.
+- Specs, bugs and tasks are one file each and there is no backlog file, so there is no shared list to
+  fight over.
+- Finished changes are archived by date. Everything is committed.
 
-**Review the work, then the code.** Each item in a sprint has one work log. A reviewer reads, in
-order: the checklist (what was done), the summary (where), the decisions (why), the QA entry (which
-test proves which acceptance criterion) and the reviewer agent's findings ordered by severity with
-file and line. Critical and high findings, security, money and data are where you open the code.
-The rest you check against the record. Your verdict goes in the same file as `## Feedback`, and
-git records who wrote it and when.
+**Review the work, then the code.** A reviewer reads one work log: the checklist (what was done), the
+summary (where), the decisions (why), the design it followed, the QA entry (which test proves which
+criterion) and the reviewer agent's findings ordered by severity with file and line. Critical and high
+findings, security, money and data are where you open the code. The rest you check against the record.
+Your verdict goes in the same file as `## Feedback`, and git records who wrote it and when.
 
-**What a lead sees.** `covener status` across the repository: every open sprint, its owner, each
-item's state and checklist progress, what is waiting for a human, what is inconsistent. A domain
-lead runs `covener status --domain billing` and sees only their part. It is the stand-up, generated
-from the files.
+**What a lead sees.** `covener status` across the repository: every open change, its state and
+checklist progress, what is waiting for a human, what is inconsistent. A domain lead runs
+`covener status --domain billing`. It is the stand-up, generated from the files.
 
-**What the rule can and cannot do.** Nothing physically stops an agent from typing
-`Approved: Yes`. The agent prompts forbid it, `status` makes every approval a visible line that CI
-checks, and git blame tells you who wrote it. That is more than a review step in a prompt, and less
-than a signature; treat it accordingly.
+**What the rule can and cannot do.** Nothing physically stops an agent from typing `Approved: Yes`.
+The agent prompts forbid it, `status` makes every approval a visible line that CI checks,
+`change archive` refuses without it, and git blame tells you who wrote it. That is more than a review
+step in a prompt, and less than a signature; treat it accordingly.
 
 **Your reviewer in CI.** The reviewer agent is a file in your repository, so the same agent that
-reviews in the IDE can review a pull request headlessly and publish its findings as the starting
-point for the human reviewer. An example with Claude Code; adapt it to your CI and tool:
+reviews in the IDE can review a pull request headlessly and publish its findings as the starting point
+for the human reviewer. An example with Claude Code; adapt it to your CI and tool:
 
 ```yaml
 - run: pip install covener && covener status --strict
@@ -281,26 +282,26 @@ point for the human reviewer. An example with Claude Code; adapt it to your CI a
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
     claude -p --agent reviewer --allowedTools "Read" "Bash(git diff *)" "Bash(git log *)" \
-      "Review this pull request against the work logs of the sprint it closes. Report findings \
+      "Review this pull request against the work log of the change it closes. Report findings \
        by severity with file and line, and compliance against cited references." \
       >> "$GITHUB_STEP_SUMMARY"
 ```
 
 ## Bugs, tasks and hotfixes
 
-A **bug** is a deviation from the product. A **fix** is the change that corrects it. A **hotfix** is
-a fix that cannot wait. A **task** is work that leaves no requirement behind. The words stay apart;
-the flow stays the same.
+A **bug** is a deviation from the product. A **fix** is the change that corrects it. A **hotfix** is a
+fix that cannot wait. A **task** is work that leaves no requirement behind. The words stay apart; the
+flow stays the same.
 
 | Situation | Flow |
 |---|---|
-| Trivial fix (one place, no design decision) | "Fix this." The engineer fixes it with a test and tells you. No file, no sprint. |
-| Bug worth tracking | "This is the problem." Product registers `bugs/<id>.md` (symptom, reproduction, cause if known, expected behaviour), `open` from the start: a bug is reported, not approved. It waits at the top of the backlog for the next sprint; an active sprint's scope does not change. |
-| Hotfix | Same, but the planner opens a one-bug sprint now (`sprints/hotfix-<slug>/`) and the cycle runs in an hour: regression test, fix, QA, review, your `Approved: Yes`, archive. |
-| Technical work | "Move the KYC archive to an EU region." The planner registers `tasks/<id>.md` (goal, why, scope, done-when, risk and rollback, and `spec:` when it serves one), `open` from the start. Same cycle; QA verifies the done-when and that no spec regressed. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
+| Trivial fix (one place, no design decision) | "Fix this." The engineer fixes it with a test and tells you. No file, no change. |
+| Bug worth tracking | "This is the problem." Product registers `bugs/<id>.md` (symptom, reproduction, cause if known, expected behaviour, affected spec), `open` from the start: a bug is reported, not approved. It goes to the top of the backlog until someone starts a change for it. |
+| Hotfix | The same, without waiting: `covener change start fix-token-refresh --bug token-refresh` right now. The cycle runs in an hour instead of a week, and nothing else has to pause, because there is no sprint to interrupt. |
+| Technical work | "Move the KYC archive to an EU region." You or the planner register `tasks/<id>.md` with goal, why, scope, done-when, risk and rollback. Same cycle. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
 
 Bugs and tasks never touch a spec. If a bug reveals the spec was wrong, or a task changes what the
-product promises, that is a separate change to the spec.
+product promises, that is a separate edit to the spec.
 
 ## Project Knowledge
 
@@ -314,28 +315,28 @@ cp ~/regulations/*.pdf knowledge/
 covener knowledge build              # incremental: only new or changed documents are processed
 ```
 
-**Deterministic layer**, no model, no network. Every source becomes Markdown with `## Page N`
-headings next to it; `knowledge/INDEX.md` lists the corpus; `knowledge/CITATIONS.md` is the graph of
-explicit cross-references between documents, resolved to the documents in the corpus. Patterns cover
-EU regulations and directives and Spanish-language public law today; adding a jurisdiction is one
-regular expression. Nothing in this layer can be hallucinated.
+**Deterministic layer**, no model, no network. Every source becomes Markdown with `## Page N` headings
+next to it; `knowledge/INDEX.md` lists the corpus; `knowledge/CITATIONS.md` is the graph of explicit
+cross-references between documents, resolved to the documents in the corpus. Patterns cover EU
+regulations and directives and Spanish-language public law today; adding a jurisdiction is one regular
+expression. Nothing in this layer can be hallucinated.
 
 **Knowledge Oracle**, optional. A graph of entities and relationships plus vector retrieval over the
 same Markdown, built with a frontier model and stored as local files (LightRAG: NetworkX graph,
 nano-vectordb, no server). One tool, `search_knowledge`, returns answer, relations and evidence with
-`knowledge/<file>.md#page-N` references. The evidence list is the part to trust: when retrieval
-finds nothing, it is empty and the answer is instructed to say so.
+`knowledge/<file>.md#page-N` references. The evidence list is the part to trust: when retrieval finds
+nothing, it is empty and the answer is instructed to say so.
 
 ```bash
 covener knowledge ask "A customer closes their account and asks us to delete everything. What must we erase and what must we keep?"
 ```
 
 ```
-Erase personal data without undue delay once it is no longer necessary [gdpr.md#page-43], except
-data you must keep to comply with a legal obligation [gdpr.md#page-44]. Customer due diligence
-documents and transaction records must be retained for five years after the end of the business
-relationship [amld.md#page-31] and deleted afterwards [amld.md#page-31]. Recipients of the data
-must be told about the erasure [gdpr.md#page-45].
+Erase personal data without undue delay once it is no longer necessary [gdpr.md#page-43], except data
+you must keep to comply with a legal obligation [gdpr.md#page-44]. Customer due diligence documents
+and transaction records must be retained for five years after the end of the business relationship
+[amld.md#page-31] and deleted afterwards [amld.md#page-31]. Recipients of the data must be told about
+the erasure [gdpr.md#page-45].
 
 Evidence
   - knowledge/gdpr.md#page-43: Article 17(1) ... the controller shall have the obligation to erase ...
@@ -349,7 +350,7 @@ Relations
 ```
 
 **How the team uses it.** Product asks the Oracle before drafting a governed spec and cites the
-evidence in `references:`. Engineer reads the cited pages before implementing. Reviewer opens every
+evidence in `references:`. Engineer reads the cited pages before designing. Reviewer opens every
 citation, checks the implementation against the wording, and asks the Oracle whether an uncited
 document contradicts the spec: a contradiction is a `fail`. `covener status` warns when a reference
 points to a file that does not exist.
@@ -362,10 +363,10 @@ references: [knowledge/gdpr.md#page-43, knowledge/gdpr.md#page-44, knowledge/aml
 Models: `claude-sonnet-5` for extraction and answers, `voyage-4-large` for retrieval, both
 multilingual; the Oracle answers in the language of the question. Override with `COVENER_LLM_MODEL`
 and `COVENER_EMBED_MODEL` (`voyage-law-2` is tuned for legal text). Keys (`ANTHROPIC_API_KEY`,
-`VOYAGE_API_KEY`) live in the environment, never in the repository. Indexing is incremental and
-costs on the order of a few dollars per hundred documents, depending on model and document length.
-The graph lives in `.covener/knowledge/` (ignored by git, rebuildable); the Markdown and both index
-files are committed and reviewable.
+`VOYAGE_API_KEY`) live in the environment, never in the repository. Indexing is incremental and costs
+on the order of a few dollars per hundred documents, depending on model and document length. The graph
+lives in `.covener/knowledge/` (ignored by git, rebuildable); the Markdown and both index files are
+committed and reviewable.
 
 ## Tools: CLI and MCP
 
@@ -374,7 +375,7 @@ model. `AGENTS.md` tells the agents when to use which.
 
 | Level | For | Registered in | Covener |
 |---|---|---|---|
-| CLI | people, CI | installed | `covener init`, `status`, `knowledge build`, `knowledge ask`, `serve` |
+| CLI | people, CI | installed | `covener init`, `status`, `change start`, `change archive`, `knowledge`, `serve` |
 | Instructions | the model, at session start | `AGENTS.md`, `agents/*.md` | when to use each tool or command |
 | MCP tools | the model, any time | `.mcp.json`, `.cursor/mcp.json`, written by `init` | `status` (optionally for one domain), `search_knowledge`, `list_knowledge_sources` |
 | Chat commands | you, as shortcuts | `.claude/commands`, `.cursor/commands` | roadmap |
@@ -390,36 +391,38 @@ their MCP config at `covener serve` (stdio). The server exposes nothing that cha
 
 ## The agents
 
-Five roles with explicit boundaries, one Markdown file each in `agents/`, in the front matter
-format Claude Code and Cursor read natively. `init` links `.claude/agents` and `.cursor/agents` to
-that folder, so there is exactly one copy of each agent and editing it is editing the file.
+Five roles with explicit boundaries, one Markdown file each in `agents/`, in the front matter format
+Claude Code and Cursor read natively. `init` links `.claude/agents` and `.cursor/agents` to that
+folder, so there is exactly one copy of each agent and editing it is editing the file.
 
 | Role | Owns | Never |
 |---|---|---|
-| product | vision, impact analysis, specs by domain, bug intake, evidence in `references:` | code, approving its own specs |
-| planner | tasks, sprint scope, briefs, feedback requests, closing and archiving | code, writing `## Feedback`, marking `done` without approval |
-| engineer | implementation, fixes (regression test first), tasks, infrastructure | editing specs, expanding scope |
+| product | vision, impact analysis, specs by domain, bug intake, evidence in `references:` | code, design, approving its own specs |
+| engineer | the design, the implementation, fixes (regression test first), tasks, the checklist | editing specs, writing `## Feedback` |
 | qa | tests from acceptance criteria, acceptance verification, regressions | changing application code |
 | reviewer | consistency with the domain, architecture, security, quality, compliance against citations | editing anything |
+| planner (optional) | what to work on next, and starting the change for it | anything once the change is open |
+
+The planner exists for autonomous or batch runs, and for the days you would rather be told what is
+next. Turn it off (`planner: off`) and nothing else changes: you start the change yourself.
 
 The prompts follow current Anthropic and OpenAI guidance for frontier coding models: clear objective,
 just-in-time reads, explicit outputs, explicit human gates, no permission-seeking for work already
-requested. The model is a property of the agent (`model: claude-sonnet-5` or `inherit`); defaults are
-a fast model for QA, a balanced one for the engineer, a strong one for the rest.
+requested. The model is a property of the agent (`model: claude-sonnet-5` or `inherit`); defaults are a
+fast model for QA, a balanced one for the engineer, a strong one for the rest.
 
 **Extending the team.** Roles are the contract; agents are files. Rename or disable a role in
-`.covener/config.yaml`; add an agent by adding a file (a `frontend-engineer.md` next to
-`engineer.md` is visible to every tool through the links). For stack-specific know-how, prefer
-skills over more roles: Claude Code and Cursor load a skill only when the task needs it, so one
-engineer with `frontend`, `backend` and `infra` skills stays cheaper and more consistent than three
-engineers with three prompts. Keep `agents/` for boundaries and your tool's skills directory for
-expertise.
+`.covener/config.yaml`; add an agent by adding a file (a `frontend-engineer.md` next to `engineer.md`
+is visible to every tool through the links). For stack-specific know-how, prefer skills over more
+roles: Claude Code and Cursor load a skill only when the task needs it, so one engineer with
+`frontend`, `backend` and `infra` skills stays cheaper and more consistent than three engineers with
+three prompts. Keep `agents/` for boundaries and your tool's skills directory for expertise.
 
 ```yaml
 # .covener/config.yaml
 agents:
   reviewer: security-reviewer   # agents/security-reviewer.md
-  qa: off
+  planner: off
 tools: [claude, cursor]
 ```
 
@@ -429,6 +432,8 @@ tools: [claude, cursor]
 pip install covener            # or: uv tool install covener / pipx install covener
 covener init                   # --tools claude,cursor  --dry-run  --install-agents
 covener status                 # --domain <name>  --json  --verbose  --strict
+covener change start <name>    # --spec ID  --bug ID  --task ID  --title "..."
+covener change archive <name>
 covener knowledge build        # --no-graph  --dry-run        (covener[knowledge] or [oracle])
 covener knowledge ask "..."    # --json
 covener serve                  # MCP over stdio               (covener[mcp])
@@ -438,8 +443,8 @@ Python 3.10+. One runtime dependency (PyYAML). No network. `-C <dir>` works on e
 
 **Existing files are safe.** An existing `AGENTS.md` keeps its content and gets the Covener block
 between `<!-- covener:start -->` and `<!-- covener:end -->`; an existing `CLAUDE.md` gets an
-`@AGENTS.md` import; existing `.claude/agents/` or `.cursor/agents/` directories keep their files
-and get per-agent links; a legacy `.cursorrules` is reported.
+`@AGENTS.md` import; existing `.claude/agents/` or `.cursor/agents/` directories keep their files and
+get per-agent links; a legacy `.cursorrules` is reported.
 
 **Windows.** Links become directory junctions when symlinks are not permitted. Clone with
 `git config core.symlinks true`, or run `covener init` after cloning to repair the links.
@@ -452,30 +457,37 @@ and get per-agent links; a legacy `.cursorrules` is reported.
 
 ## What Covener does not do
 
-No project-management UI. No orchestration engine. No MCP requirement. No autonomous deployment.
-No user stories, requirement layers or profiles. Updating the package never touches your files. The
-repository works without the package installed.
+No project-management UI. No orchestration engine. No sprints, iterations or velocity. No MCP
+requirement. No autonomous deployment. No user stories or requirement layers. Updating the package
+never touches your files. The repository works without the package installed.
 
 ## FAQ
+
+**Why no sprints?** Because agents do not need them. A sprint exists to batch work for people who
+estimate together; with agents you go item by item, and what matters is that each change is designed,
+reviewed and approved. The archive gives you the history a sprint used to give you.
+
+**Do I need the planner?** No. Set `planner: off` and start changes yourself. It earns its place when
+you want the backlog triaged for you, or when you run agents unattended.
 
 **Do I need MCP, hooks or a server?** No. The repository provides the context. `covener serve` is
 optional and runs locally over stdio, for IDEs that prefer tools to shell commands.
 
 **Can I use my own agents or skills?** Yes. Drop a file in `agents/`; it is visible to every tool
-through the links. Rename or disable roles in `.covener/config.yaml`. Put stack-specific expertise
-in skills rather than in more roles.
+through the links. Rename or disable roles in `.covener/config.yaml`. Put stack-specific expertise in
+skills rather than in more roles.
 
-**What if I uninstall the package?** Everything keeps working. The method is in the files;
-`covener status` is only a checker.
+**What if I uninstall the package?** Everything keeps working. The method is in the files; `status` and
+`change` are only a checker and a scaffold.
 
-**Does it work with Codex, Copilot or Windsurf?** They read `AGENTS.md`, so the instructions and
-the layout work. Agent files are linked for Claude Code and Cursor today; other adapters are a few
-lines each.
+**Does it work with Codex, Copilot or Windsurf?** They read `AGENTS.md`, so the instructions and the
+layout work. Agent files are linked for Claude Code and Cursor today; other adapters are a few lines
+each.
 
-**Why not just a good CLAUDE.md?** A CLAUDE.md tells an agent how to behave. It does not keep
-decisions between sessions, does not separate what must be true from what happened, cannot stop an
-agent from calling something done, and cannot cite a regulation with a page number. Covener adds
-exactly those four things.
+**Why not just a good CLAUDE.md?** A CLAUDE.md tells an agent how to behave. It does not keep decisions
+between sessions, does not separate what must be true from what happened, cannot stop an agent from
+calling something done, and cannot cite a regulation with a page number. Covener adds exactly those
+four things.
 
 ## Roadmap
 
@@ -495,8 +507,8 @@ Standards used: [AGENTS.md](https://agents.md/), Claude Code
 [subagents](https://code.claude.com/docs/en/sub-agents) and
 [CLAUDE.md imports](https://code.claude.com/docs/en/memory), Cursor
 [subagents](https://cursor.com/docs/agent/subagents) and [rules](https://cursor.com/docs/context/rules);
-conventions from [OpenSpec](https://openspec.dev/docs/team-workflow),
-[spec-kit](https://github.com/github/spec-kit) and [Kiro](https://kiro.dev/docs/specs/);
+the change-centric workflow follows [OpenSpec](https://openspec.dev/docs/team-workflow), with
+conventions from [spec-kit](https://github.com/github/spec-kit) and [Kiro](https://kiro.dev/docs/specs/);
 [LightRAG](https://github.com/HKUDS/LightRAG) and [Voyage AI](https://docs.voyageai.com/) for the Oracle.
 
 ## License

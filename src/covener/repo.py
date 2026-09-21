@@ -4,14 +4,15 @@ Everything here is deterministic file parsing. No LLM is involved.
 
 Layout::
 
-    specs/vision.md                 product intent
-    specs/[<domain>/]<id>.md        what the product is, grouped by domain folder (title, status, priority)
-    bugs/<id>.md                    what is wrong              (title, status, priority, spec)
-    tasks/<id>.md                   work that changes neither  (title, status, priority, spec)
-    sprints/<name>/sprint.md        owner, status, specs: [...], bugs: [...], tasks: [...]
-    sprints/<name>/<kind>s/<id>.md  work log of an item in that sprint: checklist, entries, feedback
-    sprints/archive/YYYY-MM-DD-<name>/   closed sprints
-    agents/<name>.md                one file per agent
+    specs/vision.md                     product intent
+    specs/[<domain>/]<name>.md          what the product is  (title, status, priority)
+    bugs/<id>.md                        what is wrong        (title, status, priority, spec)
+    tasks/<id>.md                       work that changes neither (title, status, priority, spec)
+    changes/<name>/change.md            the unit of work: status, items, why
+    changes/<name>/design.md            how it will be built (optional, dies with the change)
+    changes/<name>/work.md              checklist, summaries, decisions, QA, review, human feedback
+    changes/archive/YYYY-MM-DD-<name>/  finished changes
+    agents/<name>.md                    one file per agent
 """
 
 from __future__ import annotations
@@ -27,11 +28,14 @@ from .states import KINDS, READY_STATE
 
 ENTRY_HEADING_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
 APPROVED_RE = re.compile(r"^(?:\*\*)?Approved(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z]+)", re.IGNORECASE)
-TASK_RE = re.compile(r"^\s*[-*]\s+\[(?P<done>[ xX])\]\s+\S")
+CHECK_RE = re.compile(r"^\s*[-*]\s+\[(?P<done>[ xX])\]\s+\S")
+ITEM_REF_RE = re.compile(r"^(?P<kind>spec|bug|task)\s*[:/]\s*(?P<id>\S+)$", re.IGNORECASE)
 RESERVED_NAMES: frozenset[str] = frozenset({"vision", "template", "readme"})
 IGNORED_AGENT_FILES: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 ARCHIVE_DIR = "archive"
-KINDS_IN_SPRINT_ORDER: tuple[str, ...] = ("spec", "bug", "task")
+CHANGE_FILE = "change.md"
+DESIGN_FILE = "design.md"
+WORK_FILE = "work.md"
 PRIORITY_WORDS: dict[str, int] = {"high": 1, "medium": 2, "normal": 2, "low": 3}
 
 ItemKey = tuple[str, str]  # (kind, id)
@@ -58,12 +62,25 @@ def _as_str(value: Any) -> str:
 
 
 def _as_list(value: Any) -> list[str]:
+    """Read a YAML value as a list of references.
+
+    Accepts ``[a, b]``, ``"a, b"`` and the mapping form YAML produces for
+    ``- spec: billing/refunds`` (a one-key dict per entry), which is how a change lists its items.
+    """
     if value is None or value == "":
         return []
     if isinstance(value, str):
         return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, dict):
+        return [f"{key}: {_as_str(item)}" for key, item in value.items()]
     if isinstance(value, list):
-        return [_as_str(item) for item in value if _as_str(item)]
+        result: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                result += [f"{key}: {_as_str(inner)}" for key, inner in item.items()]
+            elif _as_str(item):
+                result.append(_as_str(item))
+        return result
     return [_as_str(value)]
 
 
@@ -74,6 +91,40 @@ def _priority(value: Any) -> int:
         return int(value)
     text = str(value).strip().lower()
     return int(text) if text.isdigit() else PRIORITY_WORDS.get(text, 2)
+
+
+def domain_of_spec_id(spec_id: str) -> str:
+    """The domain of a spec is its first folder under specs/ (``billing/refunds`` -> ``billing``)."""
+    return spec_id.split("/", 1)[0] if "/" in spec_id else ""
+
+
+def normalise_ref(reference: str, directory: str) -> str:
+    """``specs/billing/x.md``, ``billing/x.md`` and ``billing/x`` all mean the id ``billing/x``."""
+    text = reference.strip().replace("\\", "/")
+    while text.startswith("./"):
+        text = text[2:]
+    text = text.strip("/")
+    if text.endswith(".md"):
+        text = text[:-3]
+    prefix = directory.strip("/") + "/"
+    if text.startswith(prefix):
+        text = text[len(prefix) :]
+    return text
+
+
+def parse_item_ref(reference: str, paths: dict[str, str]) -> ItemKey | None:
+    """Read ``spec: billing/refunds``, ``bug/rounding`` or ``specs/billing/refunds.md`` as an item key."""
+    text = reference.strip()
+    match = ITEM_REF_RE.match(text)
+    if match:
+        kind = match.group("kind").lower()
+        return (kind, normalise_ref(match.group("id"), paths[f"{kind}s"]))
+    plain = text.replace("\\", "/").lstrip("./").strip("/")
+    for kind in KINDS:
+        prefix = paths[f"{kind}s"].strip("/") + "/"
+        if plain.startswith(prefix):
+            return (kind, normalise_ref(plain, paths[f"{kind}s"]))
+    return None
 
 
 @dataclass
@@ -94,16 +145,16 @@ class WorkEntry:
 
 @dataclass
 class Item:
-    """A specification (what the product is) or a bug (what is wrong)."""
+    """A spec (what the product is), a bug (what is wrong) or a task (work with no requirement)."""
 
-    kind: str  # "spec" | "bug" | "task"
+    kind: str
     path: str  # repository-relative, posix
-    id: str  # path under specs/ or bugs/ without .md
+    id: str  # path under its folder without .md
     title: str
     status: str
     priority: int = 2
-    spec: str = ""  # bugs and tasks: id of the spec they relate to (gives them a domain)
-    references: list[str] = field(default_factory=list)  # knowledge/<file>.md#page-N, norm ids, URLs
+    spec: str = ""  # bugs and tasks: the spec they relate to, which gives them its domain
+    references: list[str] = field(default_factory=list)  # knowledge/<file>.md#page-N, URLs
     meta: dict[str, Any] = field(default_factory=dict)
     body: str = ""
 
@@ -115,40 +166,47 @@ class Item:
     def label(self) -> str:
         return f"{self.kind} {self.id}"
 
-
-def domain_of_spec_id(spec_id: str) -> str:
-    """The domain of a spec is its first folder under specs/ (``billing/refunds`` -> ``billing``)."""
-    return spec_id.split("/", 1)[0] if "/" in spec_id else ""
+    @property
+    def ready(self) -> bool:
+        return self.status == READY_STATE[self.kind]
 
 
 @dataclass
-class Sprint:
+class Change:
+    """A unit of work: what it touches, how it will be built, what happened, your verdict."""
+
     path: str  # directory, repository-relative
-    id: str  # directory name
-    owner: str
+    name: str
     status: str
-    goal: str = ""
-    items: list[ItemKey] = field(default_factory=list)  # in sprint.md order: specs, bugs, tasks
+    title: str = ""
+    items: list[ItemKey] = field(default_factory=list)
     opened: str = ""
     closed: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
-    work: dict[ItemKey, list[WorkEntry]] = field(default_factory=dict)
-    work_files: dict[ItemKey, str] = field(default_factory=dict)
-    checklist: dict[ItemKey, tuple[int, int]] = field(default_factory=dict)  # (done, total) steps
+    work: list[WorkEntry] = field(default_factory=list)
+    checklist: tuple[int, int] = (0, 0)  # (done, total)
+    has_design: bool = False
+    has_work_log: bool = False
     archived: bool = False
 
-    def work_file(self, key: ItemKey) -> str:
-        return self.work_files.get(key, f"{self.path}/{key[0]}s/{key[1]}.md")
+    @property
+    def work_file(self) -> str:
+        return f"{self.path}/{WORK_FILE}"
 
-    def work_state(self, key: ItemKey) -> str:
-        """Derived state of an item's work in this sprint (see states.WORK_STATES)."""
-        entries = [e for e in self.work.get(key, []) if e.kind != "checklist"]
+    @property
+    def state(self) -> str:
+        """Derived work state (see states.WORK_STATES); the checklist does not count as work."""
+        entries = [entry for entry in self.work if entry.kind != "checklist"]
         if not entries:
             return "not_started"
         last = entries[-1]
         if last.kind == "feedback":
             return "approved" if last.approved else "changes_requested"
         return "awaiting_feedback" if self.status == "review" else "in_progress"
+
+    @property
+    def approved(self) -> bool:
+        return self.state == "approved"
 
 
 @dataclass
@@ -168,7 +226,7 @@ class Repository:
     vision_exists: bool = False
     vision_text: str = ""
     items: list[Item] = field(default_factory=list)
-    sprints: list[Sprint] = field(default_factory=list)
+    changes: list[Change] = field(default_factory=list)
     agents: list[AgentDefinition] = field(default_factory=list)
     problems: list[ParseProblem] = field(default_factory=list)
 
@@ -179,16 +237,16 @@ class Repository:
     def of_kind(self, kind: str) -> list[Item]:
         return [item for item in self.items if item.kind == kind]
 
-    def open_sprints(self) -> list[Sprint]:
-        return [sprint for sprint in self.sprints if sprint.status != "closed"]
+    def open_changes(self) -> list[Change]:
+        return [change for change in self.changes if change.status != "done"]
 
-    def sprints_of(self, key: ItemKey, open_only: bool = False) -> list[Sprint]:
-        return [s for s in self.sprints if key in s.items and (not open_only or s.status != "closed")]
+    def changes_of(self, key: ItemKey, open_only: bool = False) -> list[Change]:
+        return [c for c in self.changes if key in c.items and (not open_only or c.status != "done")]
 
     def backlog(self) -> list[Item]:
-        """Ready items not in an open sprint: open bugs first, then specs and tasks by priority."""
-        taken = {key for sprint in self.open_sprints() for key in sprint.items}
-        available = [i for i in self.items if i.status == READY_STATE[i.kind] and i.key not in taken]
+        """Ready items not in an open change: open bugs first, then specs and tasks by priority."""
+        taken = {key for change in self.open_changes() for key in change.items}
+        available = [i for i in self.items if i.ready and i.key not in taken]
         return sorted(available, key=lambda i: (i.kind != "bug", i.priority, KINDS.index(i.kind), i.id))
 
     def domain_of(self, key: ItemKey) -> str:
@@ -240,11 +298,11 @@ def _first_heading(body: str) -> str:
     return ""
 
 
-def count_tasks(text: str) -> tuple[int, int]:
-    """Count GitHub-style task list items (``- [ ]`` / ``- [x]``) anywhere in a work log."""
+def count_checklist(text: str) -> tuple[int, int]:
+    """Count task-list items (``- [ ]`` / ``- [x]``) anywhere in a work log."""
     done = total = 0
     for line in text.splitlines():
-        match = TASK_RE.match(line)
+        match = CHECK_RE.match(line)
         if match:
             total += 1
             done += match.group("done").lower() == "x"
@@ -253,8 +311,7 @@ def count_tasks(text: str) -> tuple[int, int]:
 
 def parse_work(text: str) -> list[WorkEntry]:
     """Parse a work log: ``## ...`` entries in order. ``## Feedback`` entries are human decisions
-    and carry ``Approved: Yes|No``; ``## Checklist`` (or ``## Tasks``) is the checklist; everything
-    else is agent work."""
+    and carry ``Approved: Yes|No``; ``## Checklist`` is the checklist; everything else is agent work."""
     entries: list[WorkEntry] = []
     current: WorkEntry | None = None
     lines: list[str] = []
@@ -296,21 +353,9 @@ def parse_work(text: str) -> list[WorkEntry]:
     return entries
 
 
-def normalise_ref(reference: str, directory: str) -> str:
-    """``specs/payments/x.md``, ``payments/x.md`` and ``payments/x`` all mean the id ``payments/x``."""
-    text = reference.strip().replace("\\", "/")
-    while text.startswith("./"):
-        text = text[2:]
-    text = text.strip("/")
-    if text.endswith(".md"):
-        text = text[:-3]
-    prefix = directory.strip("/") + "/"
-    if text.startswith(prefix):
-        text = text[len(prefix) :]
-    return text
-
-
-def load_items(root: Path, kind: str, directory: Path, problems: list[ParseProblem]) -> list[Item]:
+def load_items(
+    root: Path, kind: str, directory: Path, paths: dict[str, str], problems: list[ParseProblem]
+) -> list[Item]:
     """One file per item; the path under the directory without ``.md`` is the id."""
     items: list[Item] = []
     if not directory.is_dir():
@@ -336,7 +381,7 @@ def load_items(root: Path, kind: str, directory: Path, problems: list[ParseProbl
                 title=_as_str(meta.get("title")) or _first_heading(document.body) or item_id,
                 status=_as_str(meta.get("status")),
                 priority=_priority(meta.get("priority")),
-                spec=normalise_ref(_as_str(meta.get("spec")), "specs") if kind != "spec" else "",
+                spec=normalise_ref(_as_str(meta.get("spec")), paths["specs"]) if kind != "spec" else "",
                 references=_as_list(meta.get("references")),
                 meta=meta,
                 body=document.body,
@@ -345,11 +390,11 @@ def load_items(root: Path, kind: str, directory: Path, problems: list[ParseProbl
     return items
 
 
-def _sprint_dirs(sprints_dir: Path) -> list[tuple[Path, bool]]:
-    if not sprints_dir.is_dir():
+def _change_dirs(changes_dir: Path) -> list[tuple[Path, bool]]:
+    if not changes_dir.is_dir():
         return []
     result: list[tuple[Path, bool]] = []
-    for directory in sorted(p for p in sprints_dir.iterdir() if p.is_dir() and not p.name.startswith(".")):
+    for directory in sorted(p for p in changes_dir.iterdir() if p.is_dir() and not p.name.startswith(".")):
         if directory.name.upper() == "TEMPLATE":
             continue
         if directory.name == ARCHIVE_DIR:
@@ -359,54 +404,57 @@ def _sprint_dirs(sprints_dir: Path) -> list[tuple[Path, bool]]:
     return result
 
 
-def load_sprints(root: Path, config: Config, problems: list[ParseProblem]) -> list[Sprint]:
-    sprints: list[Sprint] = []
-    for directory, archived in _sprint_dirs(root / config.paths["sprints"]):
+def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> list[Change]:
+    changes: list[Change] = []
+    paths = config.paths
+    for directory, archived in _change_dirs(root / paths["changes"]):
         rel = _rel(root, directory)
-        sprint_file = directory / "sprint.md"
-        if not sprint_file.is_file():
-            problems.append(ParseProblem(rel, "sprint directory has no sprint.md"))
+        change_file = directory / CHANGE_FILE
+        if not change_file.is_file():
+            problems.append(ParseProblem(rel, f"change directory has no {CHANGE_FILE}"))
             continue
-        document = _document(sprint_file, f"{rel}/sprint.md", problems)
+        document = _document(change_file, f"{rel}/{CHANGE_FILE}", problems)
         if document is None:
             continue
         if not document.has_front_matter:
-            problems.append(ParseProblem(f"{rel}/sprint.md", "sprint.md has no front matter (owner/status/items)"))
+            problems.append(ParseProblem(f"{rel}/{CHANGE_FILE}", f"{CHANGE_FILE} has no front matter (status/items)"))
             continue
         meta = document.meta
         items: list[ItemKey] = []
-        for kind in KINDS_IN_SPRINT_ORDER:
-            for ref in _as_list(meta.get(f"{kind}s")):
-                items.append((kind, normalise_ref(ref, config.paths[f"{kind}s"])))
-        sprint = Sprint(
+        for reference in _as_list(meta.get("items")):
+            key = parse_item_ref(reference, paths)
+            if key is None:
+                problems.append(
+                    ParseProblem(
+                        f"{rel}/{CHANGE_FILE}",
+                        f"item {reference!r} is not a spec, bug or task reference "
+                        "(use `spec: billing/refunds`, `bug: rounding` or `task: kyc-archive`)",
+                    )
+                )
+                continue
+            items.append(key)
+        change = Change(
             path=rel,
-            id=directory.name,
-            owner=_as_str(meta.get("owner")),
+            name=directory.name,
             status=_as_str(meta.get("status")),
-            goal=_as_str(meta.get("goal")),
+            title=_as_str(meta.get("title")) or _first_heading(document.body) or directory.name,
             items=items,
             opened=_as_str(meta.get("opened")),
             closed=_as_str(meta.get("closed")),
             meta=meta,
+            has_design=(directory / DESIGN_FILE).is_file(),
             archived=archived,
         )
-        for kind in KINDS_IN_SPRINT_ORDER:
-            work_dir = directory / f"{kind}s"
-            if not work_dir.is_dir():
-                continue
-            for work_file in sorted(work_dir.rglob("*.md")):
-                inner = work_file.relative_to(work_dir)
-                if any(part.startswith(".") for part in inner.parts):
-                    continue
-                key = (kind, inner.with_suffix("").as_posix())
-                text = _read(work_file, _rel(root, work_file), problems)
-                if text is not None:
-                    sprint.work[key] = parse_work(text)
-                    sprint.work_files[key] = _rel(root, work_file)
-                    sprint.checklist[key] = count_tasks(text)
-        sprints.append(sprint)
-    sprints.sort(key=lambda s: (s.opened or "", s.id))
-    return sprints
+        work_file = directory / WORK_FILE
+        if work_file.is_file():
+            change.has_work_log = True
+            text = _read(work_file, f"{rel}/{WORK_FILE}", problems)
+            if text is not None:
+                change.work = parse_work(text)
+                change.checklist = count_checklist(text)
+        changes.append(change)
+    changes.sort(key=lambda c: (c.opened or "", c.name))
+    return changes
 
 
 def load_agents(root: Path, agents_dir: Path, problems: list[ParseProblem]) -> list[AgentDefinition]:
@@ -434,17 +482,16 @@ def load_agents(root: Path, agents_dir: Path, problems: list[ParseProblem]) -> l
 
 def load_repository(root: Path, config: Config) -> Repository:
     problems: list[ParseProblem] = []
-    vision = root / config.paths["vision"]
+    paths = config.paths
+    vision = root / paths["vision"]
     repository = Repository(
-        root=root, config=config, vision_path=config.paths["vision"], vision_exists=vision.is_file(), problems=problems
+        root=root, config=config, vision_path=paths["vision"], vision_exists=vision.is_file(), problems=problems
     )
     if vision.is_file():
-        repository.vision_text = _read(vision, config.paths["vision"], problems) or ""
+        repository.vision_text = _read(vision, paths["vision"], problems) or ""
     repository.items = [
-        item
-        for kind in KINDS_IN_SPRINT_ORDER
-        for item in load_items(root, kind, root / config.paths[f"{kind}s"], problems)
+        item for kind in KINDS for item in load_items(root, kind, root / paths[f"{kind}s"], paths, problems)
     ]
-    repository.sprints = load_sprints(root, config, problems)
-    repository.agents = load_agents(root, root / config.paths["agents"], problems)
+    repository.changes = load_changes(root, config, problems)
+    repository.agents = load_agents(root, root / paths["agents"], problems)
     return repository

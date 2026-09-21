@@ -4,18 +4,18 @@ This repository uses Covener: spec-driven development with an AI agent team. The
 source of truth, the conversation is the interface, and humans approve.
 
 - Product vision: `specs/vision.md`
-- Specifications, what the product is: `specs/<domain>/<name>.md`, one clean living file each, grouped
-  by domain folder (`billing/`, `user-management/`); the path is the id
+- Specifications, what the product is: `specs/<domain>/<name>.md`, one clean living file each,
+  grouped by domain folder (`billing/`, `user-management/`); the path is the id
   (`status: draft | approved | done`; editing a done spec sends it back to draft)
 - Bugs, what is wrong: `bugs/<id>.md` (`status: open | done`; `spec:` names the affected spec)
 - Tasks, work that changes neither what the product is nor fixes a bug (migrations, refactors,
   upgrades, removals): `tasks/<id>.md` (`status: open | done`)
-- Sprints: `sprints/<name>/sprint.md` (owner, scope: `specs:`, `bugs:`, `tasks:`; `active -> review -> closed`)
-  with one work log per item next to it, `sprints/<name>/<kind>s/<id>.md`: checklist, agent summaries,
-  decisions, QA, reviews and human feedback, chronological. One sprint, one owner, one branch.
-  Closed sprints live in `sprints/archive/`
-- Backlog: not a file. Open bugs first, then approved specs and open tasks by priority, none in an
-  open sprint; the `status` tool lists it, for the whole repository or one domain
+- Changes, the unit of work: `changes/<name>/` with `change.md` (status and the items it touches),
+  `design.md` (how it will be built; optional, dies with the change) and `work.md`
+  (checklist, summaries, decisions, QA, review and human feedback, chronological).
+  Finished changes live in `changes/archive/`
+- Backlog: not a file. Approved specs, open bugs and open tasks that are not in an open change;
+  the `status` tool lists it, for the whole repository or one domain
 - Project knowledge, when present: `knowledge/` (regulations, contracts, procedures) with
   `knowledge/INDEX.md` and `knowledge/CITATIONS.md`; ask the `search_knowledge` tool when it is
   configured, otherwise read the index. Cite evidence as `knowledge/<file>.md#page-N` in `references:`
@@ -24,18 +24,18 @@ source of truth, the conversation is the interface, and humans approve.
 
 Rules for every agent:
 
-1. Implementation, tests and reviews happen only for an approved spec, an open bug or an open task
-   inside an open sprint. The Product agent writes specs and registers bugs; the Planner registers
-   tasks and runs sprints.
-2. A spec in an open sprint is not edited; changes are proposed to the Product agent. A sprint's
-   scope does not change once active: new work waits for the next sprint; a hotfix is its own sprint.
-3. Record what you did, decided and found in the item's work log of the current sprint.
-   Short and useful; never chat logs.
-4. Agents never write `## Feedback` entries. `status: done` on an item and `status: closed` on a
-   sprint are applied by the Planner only after the human's `Approved: Yes` is in the work log.
-5. A trivial fix (one place, no design decision) needs no bug file: do it, test it, say so.
-6. Never state what a regulation or document says without evidence from `knowledge/`; if there is
+1. Work happens inside a change. Start one with `covener change start <name> --spec <id>` (or
+   `--bug`, `--task`); it refuses an item that is not ready or is already in an open change.
+2. Implementation, tests and reviews happen only for the items the open change lists. A spec that is
+   approved, in a change or done is not edited: changes to it are proposed to the Product agent.
+3. Record what you did, decided and found in the change's `work.md`. Put the design in `design.md`
+   before writing code. Short and useful; never chat logs.
+4. Agents never write `## Feedback` entries. When the work is complete and reviewed, set the change to
+   `status: review` and tell the human what to evaluate.
+5. After the human writes `Approved: Yes`, close the change with `covener change archive <name>`:
+   it marks the items done and moves the change to the archive. It refuses without that approval.
+6. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
+7. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
-7. The `status` tool (or `covener status` in the shell) lists the backlog, what is next and what is
-   inconsistent; use it before planning and after changing statuses. `search_knowledge` is the tool for
-   the project knowledge; without tools, run `covener knowledge ask "..."` or read `knowledge/INDEX.md`.
+8. The `status` tool (or `covener status`) lists the backlog, the open changes, what is next and what
+   is inconsistent; use it before starting work and after changing statuses.

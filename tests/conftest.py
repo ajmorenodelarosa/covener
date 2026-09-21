@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -10,8 +11,6 @@ from covener.init import initialize
 
 
 def _can_symlink() -> bool:
-    import tempfile
-
     with tempfile.TemporaryDirectory() as tmp:
         try:
             os.symlink(os.path.join(tmp, "missing"), os.path.join(tmp, "link"))
@@ -59,22 +58,27 @@ def task(root: Path, name: str, status: str = "open", **fields: str) -> None:
     write(root, f"tasks/{name}.md", f"---\ntitle: {name}\nstatus: {status}\n{extra}---\n## Goal\n")
 
 
-def sprint(
+def change(
     root: Path,
     name: str,
-    owner: str,
-    status: str,
-    specs: list[str],
-    bugs: list[str] | None = None,
+    status: str = "open",
+    items: list[str] | None = None,
+    work: str = "",
     closed: str = "",
-    tasks: list[str] | None = None,
+    archived: bool = False,
+    design: bool = False,
 ) -> None:
+    """Write a change directory; ``items`` are references like ``spec: billing/refunds``."""
+    folder = f"changes/archive/{name}" if archived else f"changes/{name}"
+    listed = "\n".join(f"  - {reference}" for reference in (items or []))
     write(
         root,
-        f"sprints/{name}/sprint.md",
-        f"---\nowner: {owner}\nstatus: {status}\ngoal: g\nspecs: [{', '.join(specs)}]\n"
-        f"bugs: [{', '.join(bugs or [])}]\ntasks: [{', '.join(tasks or [])}]\nopened: 2026-09-12\nclosed: {closed}\n---\n",
+        f"{folder}/change.md",
+        f"---\ntitle: {name}\nstatus: {status}\nitems:\n{listed}\nopened: 2026-09-20\nclosed: {closed}\n---\n## Why\n",
     )
+    write(root, f"{folder}/work.md", work or "# w\n\n## Checklist\n- [ ] step\n")
+    if design:
+        write(root, f"{folder}/design.md", "# Design\n\n## Approach\nx\n")
 
 
 @pytest.fixture
@@ -88,59 +92,36 @@ def repo(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def populated(repo: Path) -> Path:
-    """Two people, one sprint each, consistent state.
+    """Two open changes and one archived, in a consistent state.
 
-    - payments-onboarding (review, alvaro): spec stripe-connect approved by the human;
-      spec payouts awaiting feedback; bug expired-tokens awaiting feedback
-    - reporting-v1 (active, maria): spec reporting-api in progress
-    - backlog: bug wrong-currency (open), spec refunds (approved); spec ideas is draft
+    - account-closure (review): spec privacy/account-closure, awaiting the human's feedback
+    - fix-rounding (open): bug rounding, in progress
+    - archived 2026-09-10-audit-trail: spec aml/audit-trail, approved and done
+    - backlog: bug wrong-currency, spec privacy/consent (approved), task upgrade-deps
     """
-    spec(repo, "stripe-connect", priority="high")
-    spec(repo, "payouts")
-    spec(repo, "reporting-api")
-    spec(repo, "refunds", priority="low")
-    spec(repo, "ideas", status="draft")
-    bug(repo, "expired-tokens")
+    spec(repo, "privacy/account-closure", priority="high")
+    spec(repo, "privacy/consent")
+    spec(repo, "aml/audit-trail", status="done")
+    spec(repo, "aml/monitoring", status="draft")
+    bug(repo, "rounding", spec="privacy/account-closure")
     bug(repo, "wrong-currency", priority="low")
-    sprint(repo, "payments-onboarding", "alvaro", "review", ["stripe-connect", "payouts"], ["expired-tokens"])
-    sprint(repo, "reporting-v1", "maria", "active", ["reporting-api"])
-    write(
+    task(repo, "upgrade-deps")
+    change(
         repo,
-        "sprints/payments-onboarding/specs/stripe-connect.md",
-        """
-        # stripe-connect
-
-        ## Checklist
-        - [x] onboarding endpoint
-        - [x] token refresh
-        - [ ] docs
-
-        ## Summary
-        Implemented onboarding in payments/onboarding.py; 4 tests.
-
-        ## Review
-        Verdict: pass
-
-        ## Feedback
-        Approved: No
-        Handle expired tokens.
-
-        ## Rework
-        Added token refresh.
-
-        ## Feedback
-        Approved: Yes
-        """,
+        "account-closure",
+        status="review",
+        items=["spec: privacy/account-closure"],
+        design=True,
+        work="# w\n\n## Checklist\n- [x] a\n- [ ] b\n\n## Summary\nDone.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n",
     )
-    write(
+    change(repo, "fix-rounding", items=["bug: rounding"], work="# w\n\n## Checklist\n- [x] test\n\n## Summary\nWIP.\n")
+    change(
         repo,
-        "sprints/payments-onboarding/specs/payouts.md",
-        "# payouts\n\n## Summary\nDone.\n\n## Review\nVerdict: pass\n",
+        "2026-09-10-audit-trail",
+        status="done",
+        items=["spec: aml/audit-trail"],
+        closed="2026-09-10",
+        archived=True,
+        work="# w\n\n## Summary\nx\n\n## Feedback\nApproved: Yes\n",
     )
-    write(
-        repo,
-        "sprints/payments-onboarding/bugs/expired-tokens.md",
-        "# b\n\n## Summary\nFixed.\n\n## Review\nVerdict: pass\n",
-    )
-    write(repo, "sprints/reporting-v1/specs/reporting-api.md", "# reporting-api\n\n## Summary\nHalf done.\n")
     return repo

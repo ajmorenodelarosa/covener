@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0] - 2026-09-21
+
+### Added
+- Changes as the unit of work: `changes/<name>/` with `change.md` (status and the items it touches),
+  `design.md` (how it will be built, archived with the change) and `work.md` (checklist, summaries,
+  decisions, QA, review, human feedback). Finished changes go to `changes/archive/YYYY-MM-DD-<name>/`.
+- `covener change start <name> --spec|--bug|--task <id>` scaffolds a change and refuses an item that
+  does not exist, is not ready, or is already in another open change.
+- `covener change archive <name>` refuses unless the work log ends with a human `Approved: Yes`, then
+  marks the change and its items done and files it by date. The approval rule is now executed, not
+  only reported.
+
+### Removed
+- Sprints. Work goes item by item; the archive of changes is the history.
+- The planner is now optional: it picks the next item from the backlog and starts the change, and does
+  nothing once a change is open.
+
+### Changed
+- `covener status` lists open changes with their state, checklist progress and design, and the items
+  each one touches.
+- Agent prompts rewritten for the change flow: the engineer writes the design before the code, and no
+  agent writes `## Feedback` or closes a change.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added

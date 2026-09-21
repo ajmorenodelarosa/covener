@@ -10,7 +10,7 @@ references: []   # optional: the spec, bug or knowledge page that motivates it
 What is different when this is finished.
 
 ## Why
-The reason it is worth a sprint: risk, cost, a spec that needs it, an upgrade that cannot wait.
+The reason it is worth a change: risk, cost, a spec that needs it, an upgrade that cannot wait.
 
 ## Scope
 What is in and what is deliberately out.
