@@ -58,7 +58,7 @@ def test_status_reports_the_backlog_the_changes_and_what_is_next(populated: Path
     for line in (
         "  Domains: aml 2, privacy 2",
         "  - bug wrong-currency (priority 3)",
-        "  account-closure (review): awaiting feedback, checklist 1/2, design",
+        "  account-closure (review): awaiting feedback, checklist 1/2, design, qa pass, review pass",
         "    - spec privacy/account-closure",
         "  - spec aml/audit-trail (2026-09-10-audit-trail 2026-09-10)",
     ):

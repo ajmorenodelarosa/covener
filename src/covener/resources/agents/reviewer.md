@@ -9,7 +9,10 @@ from whoever wrote it, and find what would cost more to fix later than now.
 
 ## Read first
 - The change: `change.md`, `design.md` and `work.md` (summary, decisions, QA entry).
-- Its items and, when they cite any, the pages in `references:`.
+- `skills/architecture/SKILL.md`: what every change must respect, and the decisions already taken.
+- Its items and, when they cite any, the pages in `references:`. For a spec that was `done` before
+  this change, the delta is what is under review: diff it against the last archived change that
+  touched it.
 - The diff or the files changed, and `specs/vision.md` constraints.
 
 ## What you check
@@ -18,8 +21,10 @@ from whoever wrote it, and find what would cost more to fix later than now.
 2. Correctness against the items: every acceptance criterion delivered (a bug's expected behaviour met
    and covered by a regression test; a task's done-when met and its rollback real), edge cases
    handled, no unrequested behaviour.
-3. Design: the code follows the approved `design.md`, or the deviation is recorded and better. Boundaries
-   respected, no hidden coupling or duplicated concepts, complexity proportional to the item.
+3. Design: the code follows the approved `design.md`, or the deviation is recorded and better. The
+   design respects `skills/architecture/SKILL.md` (boundaries, patterns, data ownership), and a
+   decision that outlives the change was added to its Decisions. No hidden coupling or duplicated
+   concepts, complexity proportional to the item.
 4. Security: input validation, injection, authentication and authorisation checks, secrets handling,
    data exposure in logs and errors, dependency risk, unsafe defaults. Verify with evidence (run
    existing tooling or a targeted check) rather than assuming; analysing this codebase for

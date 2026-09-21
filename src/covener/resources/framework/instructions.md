@@ -22,7 +22,9 @@ source of truth, the conversation is the interface, and humans approve.
 - Agents: `agents/` (one file per agent; `.claude/agents` and `.cursor/agents` link here)
 - Skills, this project's conventions: `skills/<name>/SKILL.md` in the Agent Skills open standard
   (`.claude/skills` and `.agents/skills` hold one link per skill). Read the skill for the layer you
-  are touching before writing code; `frontend` and `backend` ship as templates to fill in
+  are touching before writing code, and `skills/architecture/SKILL.md` before designing: it holds
+  the shape of the system and the decisions every change must respect. `frontend`, `backend` and
+  `architecture` ship as templates to fill in
 - State model: `.covener/states.yaml`; role mapping: `.covener/config.yaml`
 
 Rules for every agent:
@@ -34,7 +36,8 @@ Rules for every agent:
 3. Record what you did, decided and found in the change's `work.md`. Short and useful; never chat logs.
 4. Design before code: write `design.md`, log a short `## Design` entry in `work.md`, and stop. The
    human reads it, edits it or answers with `## Feedback`; no code is written until `Approved: Yes`.
-   A change too small for a design says so and skips the step.
+   A change too small for a design says so and skips the step; a human who wants no design review
+   for a change says so, and the `## Design` entry records it.
 5. Agents never write `## Feedback` entries. When the work is complete and reviewed, set the change to
    `status: review` and tell the human what to evaluate.
 6. After the human writes `Approved: Yes` on a change in `review`, close it with
@@ -46,4 +49,6 @@ Rules for every agent:
 9. The `status` tool (or `covener status`) lists the backlog, the open changes, the skills, what is
    next and what is inconsistent; use it before starting work and after changing statuses.
 10. When a review finds the same problem twice, the fix is a line in the relevant skill, proposed to the
-    human. Skills are how this project's conventions accumulate.
+    human. A decision that outlives its change becomes a line under Decisions in
+    `skills/architecture/SKILL.md`, in that same change. Skills are how this project's conventions
+    and its architecture accumulate.

@@ -8,6 +8,15 @@
   in *Pending human review* and points at the file to read. You extend the design, reject it with
   `Approved: No`, or approve it with `Approved: Yes`, and only then is code written.
 - `## Design` is a work-log entry kind of its own, next to `## Feedback` and the agents' entries.
+- `skills/architecture/SKILL.md` ships as a third starter skill: the shape of the system, its
+  boundaries, patterns, data ownership and the decisions every change must respect. `design.md`
+  describes one change; this file is what outlives it. The engineer reads it before designing, the
+  reviewer judges the design against it, and a decision that constrains future changes is added to
+  it in the same change.
+- The QA and Review verdicts are read by the checker. `Verdict: pass | pass with notes | fail` in
+  `## QA` and `## Review` shows up in `covener status` next to the change, and a change in `review`
+  whose latest verdict is `fail` is an error (`change.review-with-failing-verdict`): you are never
+  asked to approve work an agent failed, and the agents are told to fix it first.
 
 ### Changed
 - An `Approved: Yes` on a change that is still `open` approves the design, not the work: only a
@@ -16,7 +25,10 @@
 - `covener change archive` says which of the two approvals is missing instead of reporting a generic
   one.
 - The engineer prompt, the AGENTS.md block, `.covener/states.yaml` and the `work.md` and `design.md`
-  templates carry the gate; a change too small for a design skips it and says so.
+  templates carry the gate; a change too small for a design skips it and says so, and a human who
+  wants no design review for a change (an unattended run) says so and the `## Design` entry records it.
+- QA and the reviewer treat a spec that was already `done` as its delta: they diff it against the
+  last archived change that touched it, so editing one line of a living spec is reviewed as one line.
 
 ## [0.6.0] - 2026-09-21
 

@@ -86,6 +86,15 @@ def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.Capt
     write(repo, "changes/account-closure/work.md", "## Checklist\n- [x] a\n\n## Summary\nBuilt.\n")
     assert state(repo) == "in_progress"
 
+    # A failing verdict cannot reach you as a request for approval: it is an error, and the agents are told.
+    failing = "## Summary\nBuilt.\n\n## QA\nVerdict: fail\n- AC2 has no test\n\n## Review\nVerdict: pass\n"
+    change(repo, "account-closure", status="review", items=items, work=failing)
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert {i.code for i in report.errors} == {"change.review-with-failing-verdict"}
+    assert snapshot.changes[0]["verdicts"] == {"qa": "fail", "review": "pass"}
+    assert not any(a.startswith("Give feedback") for a in report.actions)
+    assert any("failing verdict" in a for a in report.actions)
+
     # QA and review passed; the change waits for the only verdict that closes it.
     work = "## Checklist\n- [x] a\n\n## Summary\nBuilt.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n"
     change(repo, "account-closure", status="review", items=items, work=work)

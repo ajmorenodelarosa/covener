@@ -27,6 +27,7 @@ def test_the_packaged_agents_and_skills_are_valid_for_every_harness() -> None:
         "product",
         "qa",
         "reviewer",
+        "architecture",
         "backend",
         "frontend",
     ]
@@ -64,14 +65,16 @@ def test_skills_are_linked_where_each_harness_reads_them(repo: Path) -> None:
 
 def test_status_flags_the_template_and_the_broken_skills(repo: Path) -> None:
     _, report, snapshot = compute(repo, config.load(repo))
-    assert snapshot.skills == [{"name": "backend", "template": True}, {"name": "frontend", "template": True}]
-    assert "Skills: backend (template), frontend (template)" in render_text(snapshot).splitlines()
+    assert snapshot.skills == [{"name": name, "template": True} for name in ("architecture", "backend", "frontend")]
+    assert (
+        "Skills: architecture (template), backend (template), frontend (template)" in render_text(snapshot).splitlines()
+    )
     assert "Fill in skills/frontend/SKILL.md with this project's conventions" in report.actions
     # Filled in: no warning, no action left.
     for name in STARTER_SKILLS:
         write(repo, f"skills/{name}/SKILL.md", f"---\nname: {name}\ndescription: ours\n---\nOur rules.\n")
     _, report, snapshot = compute(repo, config.load(repo))
-    assert snapshot.skills == [{"name": "backend", "template": False}, {"name": "frontend", "template": False}]
+    assert snapshot.skills == [{"name": name, "template": False} for name in ("architecture", "backend", "frontend")]
     assert not [issue for issue in report.issues if issue.code.startswith("skill")]
     # What the standard requires: a name matching the folder, lowercase, with a description and a file.
     write(repo, "skills/frontend/SKILL.md", "---\nname: front-end\ndescription: ours\n---\nx\n")

@@ -200,9 +200,19 @@ def _check_changes(repo: Repository, report: Report) -> None:
                     where,
                     f"{item.path} is {item.status!r}; a change only takes {states.READY_STATE[kind]} {kind}s",
                 )
+        failing = [role for role, verdict in change.verdicts.items() if verdict == "fail"]
+        if change.status == "review" and failing:
+            report.error(
+                "change.review-with-failing-verdict",
+                change.work_file,
+                f"in review while the latest {' and '.join(failing)} verdict is 'fail'",
+            )
+            report.act(
+                f"Agents: {change.name} is in review with a failing verdict; fix it before asking", *change.items
+            )
         if state == "awaiting_design":
             report.act(f"Review the design of change {change.name} in {change.path}/design.md", *change.items)
-        elif state == "awaiting_feedback":
+        elif state == "awaiting_feedback" and not failing:
             report.act(f"Give feedback on change {change.name} in {change.work_file}", *change.items)
         elif state == "changes_requested":
             report.act(f"Agents: rework {change.name} from the feedback in {change.work_file}", *change.items)

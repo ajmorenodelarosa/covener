@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .. import frontmatter
 from ..config import Config
+from ..roles import STARTER_SKILLS
 
 IGNORED: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 SKILL_FILE = "SKILL.md"
@@ -178,7 +179,7 @@ class Adapter:
         if kind == "skills":
             sources = self._skill_dirs(source_dir)
             if not sources and dry_run:  # skills/ is not written yet in a dry run
-                sources = [source_dir / name for name in ("frontend", "backend")]
+                sources = [source_dir / name for name in STARTER_SKILLS]
         else:
             sources = self._agent_files(source_dir)
             if not sources and dry_run:  # agents/ is not written yet in a dry run

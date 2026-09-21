@@ -28,6 +28,9 @@ from .states import KINDS, READY_STATE
 
 ENTRY_HEADING_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
 APPROVED_RE = re.compile(r"^(?:\*\*)?Approved(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z]+)", re.IGNORECASE)
+VERDICT_RE = re.compile(r"^(?:\*\*)?Verdict(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z][A-Za-z ]*)", re.IGNORECASE)
+# Work-log entries whose verdict `status` reads: the title prefix names the role.
+VERDICT_ROLES: tuple[str, ...] = ("qa", "review")
 CHECK_RE = re.compile(r"^\s*[-*]\s+\[(?P<done>[ xX])\]\s+\S")
 SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SKILL_FILE = "SKILL.md"
@@ -142,7 +145,14 @@ class WorkEntry:
     title: str
     kind: str  # "feedback" | "design" | "work" | "checklist"
     approved: bool | None = None  # feedback only
+    verdict: str | None = None  # QA and Review entries: "pass", "pass with notes" or "fail"
     text: str = ""
+
+    @property
+    def role(self) -> str:
+        """Which agent's entry this is, for the entries whose verdict counts (``qa`` or ``review``)."""
+        lowered = self.title.lower()
+        return next((role for role in VERDICT_ROLES if lowered.startswith(role)), "")
 
 
 @dataclass
@@ -214,6 +224,12 @@ class Change:
     @property
     def approved(self) -> bool:
         return self.state == "approved"
+
+    @property
+    def verdicts(self) -> dict[str, str]:
+        """The latest QA and Review verdicts in the log, in that order, when the entries carry one."""
+        latest = {entry.role: entry.verdict for entry in self.work if entry.role and entry.verdict}
+        return {role: latest[role] for role in VERDICT_ROLES if role in latest}
 
 
 @dataclass
@@ -332,7 +348,8 @@ def count_checklist(text: str) -> tuple[int, int]:
 def parse_work(text: str) -> list[WorkEntry]:
     """Parse a work log: ``## ...`` entries in order. ``## Feedback`` entries are human decisions
     and carry ``Approved: Yes|No``; ``## Design`` proposes the design and waits for one;
-    ``## Checklist`` is the checklist; everything else is agent work."""
+    ``## QA`` and ``## Review`` carry ``Verdict: pass|pass with notes|fail``; ``## Checklist`` is
+    the checklist; everything else is agent work."""
     entries: list[WorkEntry] = []
     current: WorkEntry | None = None
     lines: list[str] = []
@@ -348,6 +365,15 @@ def parse_work(text: str) -> list[WorkEntry]:
                         current.approved = match.group("value").lower() in {"yes", "true", "approved"}
                 if current.approved is None:
                     current.approved = False
+            elif current.role:
+                for line in lines:
+                    match = VERDICT_RE.match(line.strip())
+                    if match:
+                        value = match.group("value").lower()
+                        if value.startswith("fail"):
+                            current.verdict = "fail"
+                        elif value.startswith("pass"):
+                            current.verdict = "pass with notes" if "note" in value else "pass"
             entries.append(current)
         current, lines = None, []
 

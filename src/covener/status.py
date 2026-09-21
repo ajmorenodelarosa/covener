@@ -25,7 +25,7 @@ class StatusSnapshot:
     bugs: dict[str, int]
     tasks: dict[str, int]
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
-    changes: list[dict[str, Any]]  # open changes: name, status, state, items, checklist, design
+    changes: list[dict[str, Any]]  # open changes: name, status, state, items, checklist, design, verdicts
     done: list[dict[str, str]]  # kind, id, change, closed
     pending_human_review: int
     pending_spec_approval: int
@@ -96,6 +96,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
                 "items": [f"{kind} {item_id}" for kind, item_id in change.items],
                 "checklist": list(change.checklist),
                 "design": change.has_design,
+                "verdicts": change.verdicts,
             }
         )
 
@@ -173,8 +174,10 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
             done_n, total = change["checklist"]
             progress = f", checklist {done_n}/{total}" if total else ""
             design = ", design" if change["design"] else ""
+            verdicts = "".join(f", {role} {verdict}" for role, verdict in change["verdicts"].items())
             lines.append(
-                f"  {change['name']} ({change['status']}): {change['state'].replace('_', ' ')}{progress}{design}"
+                f"  {change['name']} ({change['status']}): {change['state'].replace('_', ' ')}"
+                f"{progress}{design}{verdicts}"
             )
             for item in change["items"]:
                 lines.append(f"    - {item}")

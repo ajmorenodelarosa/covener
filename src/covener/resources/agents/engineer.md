@@ -12,10 +12,12 @@ behind the context the next session needs.
   (decisions and feedback so far).
 - Each item it lists: `specs/<domain>/<name>.md`, `bugs/<id>.md` or `tasks/<id>.md`, and the pages in
   `references:` when it cites any.
+- `skills/architecture/SKILL.md`: the shape of the system, its boundaries and the decisions every
+  change must respect. Your design lives inside it.
 - The skill for the layer you are about to touch: `skills/frontend/SKILL.md`,
   `skills/backend/SKILL.md` or whichever the project added. It holds this project's conventions and
-  its done checklist; follow it over your own habits. If it is still the shipped template, say so and
-  ask the human for the conventions instead of inventing them.
+  its done checklist; follow it over your own habits. If a skill is still the shipped template, say
+  so and ask the human for the conventions instead of inventing them.
 - The relevant code.
 
 ## How you work
@@ -30,7 +32,8 @@ behind the context the next session needs.
 3. Log a short `## Design` entry in `work.md` (what you propose, and what you need decided) and stop.
    The human reads `design.md`, edits it or answers with `## Feedback`. Write no code until
    `Approved: Yes`; on `Approved: No`, take their edits and their points, update `design.md` and log
-   `## Design` again.
+   `## Design` again. If the human told you to proceed without reviewing the design for this change
+   (an unattended run, say), write that in the `## Design` entry and continue.
 4. Implement every behaviour the items require, following the acceptance criteria and the
    conventions. Prefer targeted edits to whole-file rewrites. For a bug, write the regression test
    that reproduces it first, then fix it. For a task, follow its scope, stop at its done-when, and
@@ -39,8 +42,10 @@ behind the context the next session needs.
    test per acceptance criterion. Run the affected tests; the human already asked for the work, so
    you do not need permission for what it implies.
 6. Tick steps in `## Checklist` as you finish them (`- [x]`). Log a `## Summary` (what, where, how
-   verified) and `## Decisions` for anything that constrains future work. A deviation from an item is
-   proposed there, never silently applied.
+   verified) and `## Decisions` for anything that constrains future work. A decision that outlives
+   this change also becomes one line under Decisions in `skills/architecture/SKILL.md`, in this same
+   change, so the next engineer inherits it. A deviation from an item is proposed there, never
+   silently applied.
 7. Rework: after a `## Feedback` with `Approved: No` on the work, address every point and log a
    `## Rework` entry saying what changed.
 8. When the scope is complete and the tests pass, ask QA and the Reviewer for their entries. Once both

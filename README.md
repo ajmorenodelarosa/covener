@@ -39,8 +39,9 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
   an open change, bugs first, then by priority. Nothing to maintain, nothing for a team to collide on.
 - **Skills carry your conventions.** `skills/<name>/SKILL.md` in the Agent Skills open standard,
   linked one by one into `.claude/skills` (Claude Code) and `.agents/skills` (Cursor, Codex,
-  Copilot). `frontend` and `backend` ship as templates to fill in, and a convention broken twice
-  becomes a line in one of them.
+  Copilot). `frontend`, `backend` and `architecture` ship as templates to fill in; a convention
+  broken twice becomes a line in one of them, and a decision that outlives its change becomes a line
+  in `architecture`.
 - **Knowledge is evidence.** Regulations and contracts in `knowledge/` become a page-anchored corpus
   with a citation graph; specs cite `file#page-N`, the reviewer verifies, and `status` flags dangling
   references.
@@ -133,7 +134,8 @@ against its sibling specs. Bugs and tasks stay flat; their `spec:` field puts th
 
 **Living specs.** To extend, change or remove a requirement you edit the spec; it goes back to
 `draft`, you approve it again, and a change carries it. Its history is the archived changes that
-touched it.
+touched it, and that is what the delta is measured against: QA and the reviewer diff the spec since
+the last archived change, so an edit of one line is reviewed as one line, not as the whole spec.
 
 ## The change
 
@@ -153,7 +155,14 @@ when it does, it sets the change and its items to `done` and moves the folder to
 **The design is yours before it is code.** The engineer writes `design.md`, logs a short `## Design`
 entry and stops. `covener status` counts it as pending human review and points at the file. You edit
 it, or answer `Approved: No` with what you want changed, or `Approved: Yes`; no code is written
-before that. A change too small for a design says so and skips the step: no gate, no wait.
+before that. A change too small for a design says so and skips the step: no gate, no wait. For an
+unattended run, tell the agent to proceed without the review; the `## Design` entry records that.
+
+**Where architecture lives.** `design.md` describes one change and is archived with it. What every
+change must respect, the shape of the system, its boundaries, the patterns it uses and the decisions
+already taken, lives in `skills/architecture/SKILL.md`: the engineer reads it before designing, the
+reviewer judges the design against it, and a decision that outlives a change is added to it in that
+same change, so the next engineer inherits it instead of digging through the archive.
 
 The work log is chronological. Agents add entries; you add yours.
 
@@ -230,7 +239,7 @@ Tasks
   Open: 1
   Done: 0
 
-Skills: backend, frontend
+Skills: architecture, backend, frontend
 
 Backlog
   Items: 4
@@ -240,7 +249,7 @@ Backlog
   - spec payments/sepa-transfers (priority 3)
 
 Changes
-  account-closure (review): awaiting feedback, checklist 5/6, design
+  account-closure (review): awaiting feedback, checklist 5/6, design, qa pass, review pass with notes
     - spec privacy/account-closure
 
 Done
@@ -265,8 +274,9 @@ to fail CI on errors. No model is involved; it only reads files.
 Errors are the rules that protect your authority and the repository's consistency: an item or a change
 `done` without your `Approved: Yes`; an item in two open changes; a draft spec or an unknown id in a
 change; an open change in the archive; a change with no work log; invalid statuses or unparsable
-files; a missing vision; a configured agent without a definition; a skill that breaks the standard
-(its `name` not matching its folder, or no description). Archived changes are history: only the
+files; a change in `review` whose latest QA or review verdict is `fail`, so you are never asked to
+approve work an agent failed; a missing vision; a configured agent without a definition; a skill
+that breaks the standard (its `name` not matching its folder, or no description). Archived changes are history: only the
 approval rule applies to them, so a spec that later changes never breaks CI.
 
 ## Teams and review
@@ -295,8 +305,9 @@ criterion) and the reviewer agent's findings ordered by severity with file and l
 findings, security, money and data are where you open the code. The rest you check against the record.
 Your verdict goes in the same file as `## Feedback`, and git records who wrote it and when.
 
-**What a lead sees.** `covener status` across the repository: every open change, its state and
-checklist progress, what is waiting for a human, what is inconsistent. A domain lead runs
+**What a lead sees.** `covener status` across the repository: every open change, its state,
+checklist progress and the QA and reviewer verdicts, what is waiting for a human, what is
+inconsistent. A domain lead runs
 `covener status --domain billing`. It is the stand-up, generated from the files.
 
 **What the rule can and cannot do.** Nothing physically stops an agent from typing `Approved: Yes`.
@@ -416,6 +427,7 @@ what a skill is for.
 ```
 skills/frontend/SKILL.md      structure, state, data fetching, forms, styling, accessibility, tests
 skills/backend/SKILL.md       layout, API contracts, data and migrations, errors, authorisation, logs
+skills/architecture/SKILL.md  shape, boundaries, patterns, data ownership, the decisions every change respects
 skills/<yours>/SKILL.md       api-design, data-migrations, mobile, whatever your stack needs
 skills/<name>/reference/…     longer material the agent reads only when it needs it
 skills/<name>/scripts/…       scripts it runs instead of writing code
@@ -439,18 +451,19 @@ skills can sit in `.claude/skills/` next to Covener's, untouched. Agents are lin
 one file at a time. Where symlinks are unavailable (Windows without Developer Mode) the entries are
 copied and `init` says so; re-run it after editing.
 
-`frontend` and `backend` ship as templates with the sections that matter and a done checklist.
+`frontend`, `backend` and `architecture` ship as templates with the sections that matter and a done
+checklist.
 Until you fill them in, `covener status` marks them `(template)` and tells you to, because an empty
 skill is worse than none: the agent falls back on generic habits.
 
 Adding a skill is creating the folder and running `covener init` once, so the links exist for every
 tool. Editing one needs nothing: the link points at your file.
 
-**How the team uses them.** The engineer reads the skill for the layer it is touching before writing
-code and follows its checklist. QA takes its test expectations from the same file. The reviewer
-checks the change against it, and when a convention is broken twice, the finding comes with one
-proposed line for the skill. That is how a project's conventions accumulate instead of being
-re-explained every session.
+**How the team uses them.** The engineer reads `architecture` before designing and the skill for
+the layer it is touching before writing code, and follows their checklists. QA takes its test
+expectations from the same file. The reviewer checks the change against them, and when a convention
+is broken twice, the finding comes with one proposed line for the skill. That is how a project's
+conventions accumulate instead of being re-explained every session.
 
 Writing one that actually fires: the description is a routing rule in the third person, saying what
 it covers **and** when to use it; one job per skill; `SKILL.md` short, with detail in `reference/`;

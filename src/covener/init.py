@@ -23,7 +23,7 @@ from . import config as config_module
 from . import frontmatter
 from .adapters import ADAPTERS, get_adapter
 from .repo import CHANGE_FILE, is_git_repo
-from .roles import DEFAULT_AGENT_NAMES
+from .roles import DEFAULT_AGENT_NAMES, STARTER_SKILLS
 
 MCP_ENTRY: dict[str, object] = {"command": "covener", "args": ["serve"]}
 
@@ -104,8 +104,6 @@ def render_conflicts(conflicts: list[Conflict]) -> str:
     ]
     return "\n".join(lines)
 
-
-STARTER_SKILLS: tuple[str, ...] = ("frontend", "backend")
 
 MARK_START = "<!-- covener:start -->"
 MARK_END = "<!-- covener:end -->"

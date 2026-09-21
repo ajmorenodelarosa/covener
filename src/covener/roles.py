@@ -15,3 +15,6 @@ DEFAULT_AGENT_NAMES: dict[str, str] = {
     "reviewer": "reviewer",
 }
 ROLE_KEYS: tuple[str, ...] = tuple(DEFAULT_AGENT_NAMES)
+
+# Starter skills installed on first init (skills/<name>/SKILL.md), templates to fill in.
+STARTER_SKILLS: tuple[str, ...] = ("frontend", "backend", "architecture")
