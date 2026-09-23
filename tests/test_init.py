@@ -42,6 +42,14 @@ def test_fresh_init_creates_the_structure_and_links_each_agent(tmp_path: Path) -
         if link.is_symlink():  # relative, so clones and moved checkouts keep working
             assert os.readlink(link).replace("\\", "/") == "../../agents/engineer.md"
     assert initialize(tmp_path, tools=["claude", "cursor"]).created == []  # idempotent
+    # states.yaml is Covener's, not the project's: an upgrade refreshes it and points at stale templates.
+    (tmp_path / ".covener" / "states.yaml").write_text("version: 0\n", encoding="utf-8")
+    (tmp_path / "changes" / "TEMPLATE" / "work.md").write_text("# old\n", encoding="utf-8")
+    report = initialize(tmp_path, tools=["claude", "cursor"])
+    assert (
+        ".covener/states.yaml" in report.updated and "version: 1" in (tmp_path / ".covener" / "states.yaml").read_text()
+    )
+    assert any("work.md from Covener 0.7" in note for note in report.notes)
 
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1] - 2026-09-23
+
+### Fixed
+- `covener init` refreshes `.covener/states.yaml` when the packaged one changed, so upgrading the
+  package upgrades the state model the agents read. It is Covener's file, not the project's; the
+  configuration, the agents and the vision are still never overwritten.
+- `covener init` says so when `changes/TEMPLATE/` still holds `change.md` or `work.md` from 0.7.
+
 ## [0.8.0] - 2026-09-23
 
 The change cycle now follows what OpenSpec, Spec Kit and Kiro settled on, and every human approval is

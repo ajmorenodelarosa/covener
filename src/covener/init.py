@@ -175,6 +175,22 @@ def _write(root: Path, relative: str, content: str, report: InitReport) -> None:
     report.created.append(relative)
 
 
+def _refresh(root: Path, relative: str, content: str, report: InitReport) -> None:
+    """Write a file that is Covener's, not the project's: created when missing, updated when it drifted."""
+    target = root / relative
+    existed = target.exists()
+    if existed and target.read_text(encoding="utf-8") == content:
+        report.kept.append(relative)
+        return
+    if not report.dry_run:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    (report.updated if existed else report.created).append(relative)
+
+
+STALE_TEMPLATES: tuple[str, ...] = ("change.md", "work.md")  # the 0.7 change files
+
+
 def _write_preserving_newlines(target: Path, text: str, raw: bytes) -> None:
     newline = "\r\n" if b"\r\n" in raw else "\n"
     target.write_bytes(text.replace("\r\n", "\n").replace("\n", newline).encode("utf-8"))
@@ -334,7 +350,7 @@ def initialize(
     if first_init:
         _write(root, config_module.CONFIG_RELATIVE_PATH.as_posix(), cfg.render(), report)
     for resource, target in FRAMEWORK_FILES:
-        _write(root, target, read_resource(resource), report)
+        _refresh(root, target, read_resource(resource), report)
     _write(root, paths["vision"], read_resource("templates/vision.md"), report)
     _write(root, f"{paths['specs']}/TEMPLATE.md", read_resource("templates/spec.md"), report)
     _write(root, f"{paths['bugs']}/TEMPLATE.md", read_resource("templates/bug.md"), report)
@@ -342,6 +358,13 @@ def initialize(
     _write(root, f"{paths['skills']}/README.md", read_resource("templates/skills-README.md"), report)
     for name in ("design.md", "tasks.md", "implementation.md"):
         _write(root, f"{paths['changes']}/TEMPLATE/{name}", read_resource(f"templates/{name}"), report)
+    stale = [name for name in STALE_TEMPLATES if (root / paths["changes"] / "TEMPLATE" / name).exists()]
+    if stale:
+        report.notes.append(
+            f"{paths['changes']}/TEMPLATE/ still holds {' and '.join(stale)} from Covener 0.7; a change is now "
+            "design.md, tasks.md and implementation.md. Delete them, and migrate open changes as CHANGELOG.md "
+            "for 0.8.0 describes."
+        )
 
     # Agents: the default team on first install; afterwards only on request.
     default_role_by_name = {name: role for role, name in DEFAULT_AGENT_NAMES.items()}
