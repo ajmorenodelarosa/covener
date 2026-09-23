@@ -1,8 +1,8 @@
-"""``covener change``: start a change, and archive it once you approved the work.
+"""``covener change``: start a change, and archive it once you have approved the implementation.
 
 Both are deterministic file operations with the rules enforced, not merely reported:
 ``start`` refuses an item that is not ready or is already in an open change, and ``archive``
-refuses a change whose work log does not end with your ``Approved: Yes``.
+refuses a change whose ``implementation.md`` you did not set to ``approved``, or with an open task.
 """
 
 from __future__ import annotations
@@ -15,9 +15,10 @@ from pathlib import Path
 
 from .config import Config
 from .init import read_resource
-from .repo import ARCHIVE_DIR, CHANGE_FILE, DESIGN_FILE, WORK_FILE, ItemKey, load_repository
+from .repo import ARCHIVE_DIR, IMPLEMENTATION_FILE, TASKS_FILE, ItemKey, load_repository
 
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+RESERVED_CHANGE_NAMES: frozenset[str] = frozenset({ARCHIVE_DIR, "template"})
 
 
 class ChangeError(ValueError):
@@ -53,10 +54,9 @@ def start(
     specs: list[str] | None = None,
     bugs: list[str] | None = None,
     tasks: list[str] | None = None,
-    title: str = "",
 ) -> ChangeReport:
-    """Create ``changes/<name>/`` with change.md, design.md and work.md for the given items."""
-    if not NAME_RE.match(name):
+    """Create ``changes/<name>/tasks.md`` (a draft listing the given items) and nothing else."""
+    if not NAME_RE.match(name) or name in RESERVED_CHANGE_NAMES:
         raise ChangeError(f"{name!r} is not a valid change name: lowercase words separated by hyphens")
     wanted = _items_from(specs or [], bugs or [], tasks or [])
     if not wanted:
@@ -84,31 +84,21 @@ def start(
 
     report = ChangeReport(action="started", name=name)
     directory.mkdir(parents=True)
-    heading = title or ", ".join(by_key[key].title for key in wanted)
     item_lines = "\n".join(f"  - {kind}: {item_id}" for kind, item_id in wanted)
-    change_md = (
-        read_resource("templates/change.md")
-        .replace("<title>", heading)
-        .replace("status: open\nitems: []", f"status: open\nitems:\n{item_lines}")
-        .replace("opened: <YYYY-MM-DD>", f"opened: {date.today().isoformat()}")
-    )
-    (directory / CHANGE_FILE).write_text(change_md, encoding="utf-8")
-    (directory / DESIGN_FILE).write_text(
-        read_resource("templates/design.md").replace("<title>", heading), encoding="utf-8"
-    )
-    (directory / WORK_FILE).write_text(read_resource("templates/work.md").replace("<title>", heading), encoding="utf-8")
-    report.created += [f"{directory.relative_to(root).as_posix()}/{f}" for f in (CHANGE_FILE, DESIGN_FILE, WORK_FILE)]
+    tasks_md = read_resource("templates/tasks.md").replace("items: []", f"items:\n{item_lines}")
+    (directory / TASKS_FILE).write_text(tasks_md, encoding="utf-8")
+    report.created.append(f"{directory.relative_to(root).as_posix()}/{TASKS_FILE}")
     report.notes.append(
-        "Write design.md and log `## Design` in work.md: the human approves the design before any code. "
-        "Delete design.md if the change does not need one."
+        "Engineer: write design.md if the change needs one (changes/TEMPLATE/design.md) and stop; once the "
+        "human sets it approved, write the tasks and stop again. No code before tasks.md is approved."
     )
     return report
 
 
 def archive(root: Path, config: Config, name: str, when: str = "") -> ChangeReport:
-    """Mark the change and its items done and move it to ``changes/archive/<date>-<name>/``.
+    """Mark the change's items done and move it to ``changes/archive/<date>-<name>/``.
 
-    Refuses unless the work log ends with a human ``Approved: Yes``.
+    Refuses unless ``implementation.md`` is ``approved`` by the human, and while a task is open.
     """
     repo = load_repository(root, config)
     change = next((c for c in repo.changes if c.name == name and not c.archived), None)
@@ -119,16 +109,25 @@ def archive(root: Path, config: Config, name: str, when: str = "") -> ChangeRepo
         if archived is not None:
             raise ChangeError(f"change {name!r} is already archived in {archived.path}")
         raise ChangeError(f"change {name!r} does not exist")
-    last = next((entry for entry in reversed(change.work) if entry.kind != "checklist"), None)
-    if not change.approved and change.status == "open" and last is not None and last.approved:
+    if change.implementation is None:
         raise ChangeError(
-            f"{change.work_file} ends with an approval of the design, not of the work: when the work is "
-            f"complete, set `status: review` in {change.path}/{CHANGE_FILE} and ask for your verdict"
+            f"{change.path} has no {IMPLEMENTATION_FILE} (state: {change.state.replace('_', ' ')}); "
+            "nothing is archived without your approval of the implementation"
         )
     if not change.approved:
         raise ChangeError(
-            f"{change.work_file} does not end with a human 'Approved: Yes' "
+            f"{change.implementation_file} is {change.implementation!r}, not 'approved' "
             f"(state: {change.state.replace('_', ' ')}); nothing is archived without your approval"
+        )
+    for where, status in ((change.design_file, change.design), (change.tasks_file, change.tasks)):
+        if status is not None and status != "approved":
+            raise ChangeError(
+                f"{where} is {status!r}, not 'approved': the implementation was approved over a draft; "
+                "approve the file or fix it before archiving"
+            )
+    if change.open_tasks:
+        raise ChangeError(
+            f"{change.tasks_file} still has {change.open_tasks} open task(s); tick or remove them before archiving"
         )
 
     report = ChangeReport(action="archived", name=name)
@@ -137,13 +136,6 @@ def archive(root: Path, config: Config, name: str, when: str = "") -> ChangeRepo
     target = root / config.paths["changes"] / ARCHIVE_DIR / f"{stamp}-{name}"
     if target.exists():
         raise ChangeError(f"{target.relative_to(root).as_posix()} already exists")
-
-    change_file = source / CHANGE_FILE
-    text = change_file.read_text(encoding="utf-8")
-    text = re.sub(r"^status:.*$", "status: done", text, count=1, flags=re.MULTILINE)
-    text = re.sub(r"^closed:.*$", f"closed: {stamp}", text, count=1, flags=re.MULTILINE)
-    change_file.write_text(text, encoding="utf-8")
-    report.updated.append(f"{change.path}/{CHANGE_FILE} (status: done)")
 
     for kind, item_id in change.items:
         item = repo.item_by_key.get((kind, item_id))

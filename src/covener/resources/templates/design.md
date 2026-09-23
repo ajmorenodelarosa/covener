@@ -1,10 +1,13 @@
-# Design: <title>
+---
+status: draft
+---
 
-How this change will be built. It belongs to the change, not to the product: when the change is
-archived, this file stays with it as history. Delete it if the change does not need one.
+# Design
 
-This file is written to be read and edited by the human: the engineer logs `## Design` in `work.md`
-and waits for an `Approved: Yes` before writing any code.
+<!-- How this change will be built, written by the engineer first and approved by the human
+before the tasks are written: they edit it, ask for changes in the conversation and set
+`status: approved`. It belongs to the change, not to the product: when the change is archived,
+this file stays with it as history. A change too small for a design has no design.md. -->
 
 ## Approach
 The shape of the solution in a few sentences.

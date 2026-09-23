@@ -35,7 +35,7 @@ def serve(root: Path) -> None:
     @server.tool()  # type: ignore[untyped-decorator]
     def status(domain: str | None = None) -> str:
         """Deterministic state of this Covener repository as JSON: specs (with their domain folders),
-        bugs, tasks, derived backlog, open changes with their work state and checklist, done items,
+        bugs, tasks, derived backlog, open changes with their state and task progress, done items,
         errors, warnings and the next actions. Pass `domain` (e.g. "billing") to focus on one domain.
         Same data as `covener status --json [--domain ...]`."""
         _, _, snapshot = compute(root, load_config(root), domain)

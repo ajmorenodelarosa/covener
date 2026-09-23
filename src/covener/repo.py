@@ -8,9 +8,9 @@ Layout::
     specs/[<domain>/]<name>.md          what the product is  (title, status, priority)
     bugs/<id>.md                        what is wrong        (title, status, priority, spec)
     tasks/<id>.md                       work that changes neither (title, status, priority, spec)
-    changes/<name>/change.md            the unit of work: status, items, why
-    changes/<name>/design.md            how it will be built (optional, dies with the change)
-    changes/<name>/work.md              checklist, summaries, decisions, QA, review, human feedback
+    changes/<name>/tasks.md             the unit of work: the items it covers and the plan (status, items)
+    changes/<name>/design.md            how it will be built (optional, dies with the change; status)
+    changes/<name>/implementation.md    what happened: summary, decisions, QA, review, rework (status)
     changes/archive/YYYY-MM-DD-<name>/  finished changes
     agents/<name>.md                    one file per agent
 """
@@ -27,9 +27,8 @@ from .config import CONFIG_RELATIVE_PATH, Config
 from .states import KINDS, READY_STATE
 
 ENTRY_HEADING_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
-APPROVED_RE = re.compile(r"^(?:\*\*)?Approved(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z]+)", re.IGNORECASE)
 VERDICT_RE = re.compile(r"^(?:\*\*)?Verdict(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<value>[A-Za-z][A-Za-z ]*)", re.IGNORECASE)
-# Work-log entries whose verdict `status` reads: the title prefix names the role.
+# Implementation entries whose verdict `status` reads: the title prefix names the role.
 VERDICT_ROLES: tuple[str, ...] = ("qa", "review")
 CHECK_RE = re.compile(r"^\s*[-*]\s+\[(?P<done>[ xX])\]\s+\S")
 SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -38,9 +37,10 @@ ITEM_REF_RE = re.compile(r"^(?P<kind>spec|bug|task)\s*[:/]\s*(?P<id>\S+)$", re.I
 RESERVED_NAMES: frozenset[str] = frozenset({"vision", "template", "readme"})
 IGNORED_AGENT_FILES: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 ARCHIVE_DIR = "archive"
-CHANGE_FILE = "change.md"
+TASKS_FILE = "tasks.md"
 DESIGN_FILE = "design.md"
-WORK_FILE = "work.md"
+IMPLEMENTATION_FILE = "implementation.md"
+ARCHIVED_NAME_RE = re.compile(r"^(?P<date>\d{4}-\d{2}-\d{2})-(?P<name>.+)$")
 PRIORITY_WORDS: dict[str, int] = {"high": 1, "medium": 2, "normal": 2, "low": 3}
 
 ItemKey = tuple[str, str]  # (kind, id)
@@ -139,12 +139,10 @@ class ParseProblem:
 
 
 @dataclass
-class WorkEntry:
-    """A ``## ...`` section of a work log, in file order."""
+class Entry:
+    """A ``## ...`` section of an implementation record, in file order."""
 
     title: str
-    kind: str  # "feedback" | "design" | "work" | "checklist"
-    approved: bool | None = None  # feedback only
     verdict: str | None = None  # QA and Review entries: "pass", "pass with notes" or "fail"
     text: str = ""
 
@@ -185,50 +183,72 @@ class Item:
 
 @dataclass
 class Change:
-    """A unit of work: what it touches, how it will be built, what happened, your verdict."""
+    """A unit of work: a folder whose three files carry their own status.
+
+    ``tasks.md`` (always) lists the items and the plan; ``design.md`` (optional) says how it will be
+    built; ``implementation.md`` says what happened. The human approves each in its front matter;
+    the change's state is derived from the three and never stored.
+    """
 
     path: str  # directory, repository-relative
     name: str
-    status: str
-    title: str = ""
     items: list[ItemKey] = field(default_factory=list)
-    opened: str = ""
-    closed: str = ""
-    meta: dict[str, Any] = field(default_factory=dict)
-    work: list[WorkEntry] = field(default_factory=list)
-    checklist: tuple[int, int] = (0, 0)  # (done, total)
-    has_design: bool = False
-    has_work_log: bool = False
+    tasks: str = ""  # status of tasks.md
+    design: str | None = None  # status of design.md, None when the change has none
+    implementation: str | None = None  # status of implementation.md, None until the work starts
+    checklist: tuple[int, int] = (0, 0)  # (ticked, total) tasks in tasks.md
+    entries: list[Entry] = field(default_factory=list)  # ## sections of implementation.md
+    meta: dict[str, Any] = field(default_factory=dict)  # front matter of tasks.md
     archived: bool = False
 
     @property
-    def work_file(self) -> str:
-        return f"{self.path}/{WORK_FILE}"
+    def tasks_file(self) -> str:
+        return f"{self.path}/{TASKS_FILE}"
 
     @property
-    def state(self) -> str:
-        """Derived work state (see states.WORK_STATES); the checklist does not count as work."""
-        entries = [entry for entry in self.work if entry.kind != "checklist"]
-        if not entries:
-            return "not_started"
-        last = entries[-1]
-        if last.kind == "feedback":
-            if not last.approved:
-                return "changes_requested"
-            # A "Yes" on a change that is still open approves the design, not the work.
-            return "in_progress" if self.status == "open" else "approved"
-        if last.kind == "design":
-            return "awaiting_design"
-        return "awaiting_feedback" if self.status == "review" else "in_progress"
+    def design_file(self) -> str:
+        return f"{self.path}/{DESIGN_FILE}"
+
+    @property
+    def implementation_file(self) -> str:
+        return f"{self.path}/{IMPLEMENTATION_FILE}"
+
+    @property
+    def closed(self) -> str:
+        """The date an archived change was filed under; empty for an open one."""
+        match = ARCHIVED_NAME_RE.match(self.name) if self.archived else None
+        return match.group("date") if match else ""
+
+    @property
+    def open_tasks(self) -> int:
+        ticked, total = self.checklist
+        return total - ticked
 
     @property
     def approved(self) -> bool:
-        return self.state == "approved"
+        """The human approved the implementation: the only approval that closes a change."""
+        return self.implementation == "approved"
+
+    @property
+    def state(self) -> str:
+        """Derived state (see states.CHANGE_STATES)."""
+        if self.archived:
+            return "done"
+        if self.design == "draft":
+            return "awaiting_design"
+        if self.tasks != "approved":
+            return "awaiting_tasks" if self.checklist[1] else "not_started"
+        if self.approved:
+            return "approved"
+        # Rework tasks added after review reopen the change until they are ticked.
+        if self.implementation == "review" and not self.open_tasks:
+            return "in_review"
+        return "in_progress"
 
     @property
     def verdicts(self) -> dict[str, str]:
-        """The latest QA and Review verdicts in the log, in that order, when the entries carry one."""
-        latest = {entry.role: entry.verdict for entry in self.work if entry.role and entry.verdict}
+        """The latest QA and Review verdicts in the record, in that order, when the entries carry one."""
+        latest = {entry.role: entry.verdict for entry in self.entries if entry.role and entry.verdict}
         return {role: latest[role] for role in VERDICT_ROLES if role in latest}
 
 
@@ -274,10 +294,10 @@ class Repository:
         return [item for item in self.items if item.kind == kind]
 
     def open_changes(self) -> list[Change]:
-        return [change for change in self.changes if change.status != "done"]
+        return [change for change in self.changes if not change.archived]
 
     def changes_of(self, key: ItemKey, open_only: bool = False) -> list[Change]:
-        return [c for c in self.changes if key in c.items and (not open_only or c.status != "done")]
+        return [c for c in self.changes if key in c.items and (not open_only or not c.archived)]
 
     def backlog(self) -> list[Item]:
         """Ready items not in an open change: open bugs first, then specs and tasks by priority."""
@@ -335,7 +355,7 @@ def _first_heading(body: str) -> str:
 
 
 def count_checklist(text: str) -> tuple[int, int]:
-    """Count task-list items (``- [ ]`` / ``- [x]``) anywhere in a work log."""
+    """Count task-list items (``- [ ]`` / ``- [x]``) anywhere in tasks.md."""
     done = total = 0
     for line in text.splitlines():
         match = CHECK_RE.match(line)
@@ -345,27 +365,18 @@ def count_checklist(text: str) -> tuple[int, int]:
     return done, total
 
 
-def parse_work(text: str) -> list[WorkEntry]:
-    """Parse a work log: ``## ...`` entries in order. ``## Feedback`` entries are human decisions
-    and carry ``Approved: Yes|No``; ``## Design`` proposes the design and waits for one;
-    ``## QA`` and ``## Review`` carry ``Verdict: pass|pass with notes|fail``; ``## Checklist`` is
-    the checklist; everything else is agent work."""
-    entries: list[WorkEntry] = []
-    current: WorkEntry | None = None
+def parse_entries(text: str) -> list[Entry]:
+    """Parse an implementation record: ``## ...`` entries in order. ``## QA`` and ``## Review``
+    carry ``Verdict: pass|pass with notes|fail``; everything else is the agents' account."""
+    entries: list[Entry] = []
+    current: Entry | None = None
     lines: list[str] = []
 
     def flush() -> None:
         nonlocal current, lines
         if current is not None:
             current.text = "\n".join(lines).strip()
-            if current.kind == "feedback":
-                for line in lines:
-                    match = APPROVED_RE.match(line.strip())
-                    if match:
-                        current.approved = match.group("value").lower() in {"yes", "true", "approved"}
-                if current.approved is None:
-                    current.approved = False
-            elif current.role:
+            if current.role:
                 for line in lines:
                     match = VERDICT_RE.match(line.strip())
                     if match:
@@ -381,17 +392,7 @@ def parse_work(text: str) -> list[WorkEntry]:
         heading = ENTRY_HEADING_RE.match(line)
         if heading:
             flush()
-            title = heading.group("title")
-            lowered = title.lower()
-            if lowered.startswith("feedback"):
-                kind = "feedback"
-            elif lowered.startswith("design"):
-                kind = "design"
-            elif lowered.startswith(("checklist", "tasks")):
-                kind = "checklist"
-            else:
-                kind = "work"
-            current = WorkEntry(title=title, kind=kind)
+            current = Entry(title=heading.group("title"))
             continue
         if line.startswith("# "):
             flush()
@@ -453,29 +454,41 @@ def _change_dirs(changes_dir: Path) -> list[tuple[Path, bool]]:
     return result
 
 
+def _status_of(
+    directory: Path, filename: str, rel: str, problems: list[ParseProblem]
+) -> tuple[frontmatter.Document, str] | None:
+    """The front-matter document and ``status`` of one change file; None when it is absent or broken."""
+    path = directory / filename
+    if not path.is_file():
+        return None
+    document = _document(path, f"{rel}/{filename}", problems)
+    if document is None:
+        return None
+    if not document.has_front_matter:
+        problems.append(ParseProblem(f"{rel}/{filename}", f"{filename} has no front matter (status)"))
+        return None
+    return document, _as_str(document.meta.get("status"))
+
+
 def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> list[Change]:
     changes: list[Change] = []
     paths = config.paths
     for directory, archived in _change_dirs(root / paths["changes"]):
         rel = _rel(root, directory)
-        change_file = directory / CHANGE_FILE
-        if not change_file.is_file():
-            problems.append(ParseProblem(rel, f"change directory has no {CHANGE_FILE}"))
+        if not (directory / TASKS_FILE).is_file():
+            problems.append(ParseProblem(rel, f"change directory has no {TASKS_FILE}"))
             continue
-        document = _document(change_file, f"{rel}/{CHANGE_FILE}", problems)
-        if document is None:
+        loaded = _status_of(directory, TASKS_FILE, rel, problems)
+        if loaded is None:
             continue
-        if not document.has_front_matter:
-            problems.append(ParseProblem(f"{rel}/{CHANGE_FILE}", f"{CHANGE_FILE} has no front matter (status/items)"))
-            continue
-        meta = document.meta
+        document, tasks_status = loaded
         items: list[ItemKey] = []
-        for reference in _as_list(meta.get("items")):
+        for reference in _as_list(document.meta.get("items")):
             key = parse_item_ref(reference, paths)
             if key is None:
                 problems.append(
                     ParseProblem(
-                        f"{rel}/{CHANGE_FILE}",
+                        f"{rel}/{TASKS_FILE}",
                         f"item {reference!r} is not a spec, bug or task reference "
                         "(use `spec: billing/refunds`, `bug: rounding` or `task: kyc-archive`)",
                     )
@@ -485,24 +498,21 @@ def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> li
         change = Change(
             path=rel,
             name=directory.name,
-            status=_as_str(meta.get("status")),
-            title=_as_str(meta.get("title")) or _first_heading(document.body) or directory.name,
             items=items,
-            opened=_as_str(meta.get("opened")),
-            closed=_as_str(meta.get("closed")),
-            meta=meta,
-            has_design=(directory / DESIGN_FILE).is_file(),
+            tasks=tasks_status,
+            checklist=count_checklist(document.body),
+            meta=document.meta,
             archived=archived,
         )
-        work_file = directory / WORK_FILE
-        if work_file.is_file():
-            change.has_work_log = True
-            text = _read(work_file, f"{rel}/{WORK_FILE}", problems)
-            if text is not None:
-                change.work = parse_work(text)
-                change.checklist = count_checklist(text)
+        design = _status_of(directory, DESIGN_FILE, rel, problems)
+        if design is not None:
+            change.design = design[1]
+        implementation = _status_of(directory, IMPLEMENTATION_FILE, rel, problems)
+        if implementation is not None:
+            change.implementation = implementation[1]
+            change.entries = parse_entries(implementation[0].body)
         changes.append(change)
-    changes.sort(key=lambda c: (c.opened or "", c.name))
+    changes.sort(key=lambda c: (c.archived, c.name))
     return changes
 
 

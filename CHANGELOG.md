@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.8.0] - 2026-09-23
+
+The change cycle now follows what OpenSpec, Spec Kit and Kiro settled on, and every human approval is
+a status in the file being approved, the way a spec is approved.
+
+### Changed
+- A change is three files, each with its own `status` in front matter: `design.md` (how;
+  `draft | approved`; optional), `tasks.md` (the items it covers and the plan, one checkbox per step;
+  `draft | approved`) and `implementation.md` (what happened; `in-progress | review | approved`).
+  `change.md` and `work.md` are gone: the items and the checklist moved to `tasks.md`, the agents'
+  entries (summary, decisions, QA, review, rework) to `implementation.md`, and `opened`, `closed`,
+  `title` and the change's own `status` were redundant with the folder, the archive date and the
+  three files.
+- Three gates in order, design before tasks and tasks before code, all crossed the same way: the
+  engineer writes the file and stops, you edit it, ask for changes in the conversation and set
+  `status: approved`. `## Feedback` entries and `Approved: Yes | No` no longer exist; feedback is
+  incorporated in the file, and rework after review is a task you add under `## Rework` in
+  `tasks.md`, which reopens the change until it is ticked.
+- The state of a change is derived from the three files and never stored: `not_started`,
+  `awaiting_design`, `awaiting_tasks`, `in_progress`, `in_review`, `approved`, `done`.
+  *Pending human review* counts the three gates.
+- `covener change start` creates only `tasks.md`, as a draft listing the items; the engineer adds
+  `design.md` from `changes/TEMPLATE/` when the change needs one. `--title` is gone.
+- `covener change archive` refuses unless `implementation.md` is `approved` and every task is
+  ticked, and no longer writes a `closed` date: the archive folder carries it.
+- New checks: `change.tasks-before-design`, `change.implementation-before-tasks`,
+  `change.archived-without-approval`, one `invalid-<file>-status` per file, and a warning when an
+  approved implementation still has open tasks. `change.no-work-log`, `change.review-without-work`,
+  `change.done-without-approval`, `change.archived-open`, `change.invalid-status` and
+  `change.duplicate-name` are gone with the files they checked.
+- `status` prints `tasks 5/6` and `design approved` instead of `checklist 5/6` and `design`; the
+  JSON carries `tasks`, `design` and `implementation` per change instead of `status`, `checklist`
+  and `design`.
+- The engineer prompt states that the plan is the engineer's to write (the planner only chooses the
+  item, and there is no architect role: `skills/architecture` is what an architect would carry);
+  QA and the reviewer record their verdicts in `implementation.md`; the AGENTS.md block,
+  `.covener/states.yaml` and the templates carry the new cycle.
+
+### Migrating a repository from 0.7
+For each change, open or archived: create `tasks.md` with a front matter holding `status: approved`
+and the `items:` list copied from `change.md`, and move the checklist from `work.md` under it;
+rename `work.md` to `implementation.md` and give it a front matter with `status: approved` for an
+archived change, `in-progress` or `review` for an open one; give `design.md` a front matter with
+`status: approved`; delete `change.md`. Without `tasks.md` a change is not read, and an archived
+change without its `items:` leaves the specs it closed as `done` with no approving change, which is
+an error. Delete `changes/TEMPLATE/change.md` and `changes/TEMPLATE/work.md`; `init` adds the new
+templates next to them but never removes files.
+
 ## [0.7.0] - 2026-09-21
 
 ### Added

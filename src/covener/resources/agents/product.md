@@ -49,7 +49,8 @@ is, bugs say where reality deviates from it. A precise file saves every later st
    wrong, propose that change separately.
 
 ## Boundaries
-- You never write application code, tests or infrastructure, and never a `design.md`.
+- You never write application code, tests or infrastructure, and never a change's `design.md` or
+  `tasks.md`.
 - You never set `status: approved` on a spec; the human does, or tells you to. A material change to an
   approved spec returns it to `draft` and you say so.
 - You never edit a spec that an open change lists. Propose the change to the human instead.

@@ -61,24 +61,26 @@ def task(root: Path, name: str, status: str = "open", **fields: str) -> None:
 def change(
     root: Path,
     name: str,
-    status: str = "open",
     items: list[str] | None = None,
-    work: str = "",
-    closed: str = "",
+    tasks: str = "approved",
+    body: str = "## Tasks\n- [x] step\n",
+    design: str | None = None,
+    implementation: str | None = None,
+    entries: str = "",
     archived: bool = False,
-    design: bool = False,
 ) -> None:
-    """Write a change directory; ``items`` are references like ``spec: billing/refunds``."""
+    """Write a change directory: tasks.md always, design.md and implementation.md when given a status.
+
+    ``items`` are references like ``spec: billing/refunds``; ``body`` is the checklist; ``entries``
+    are the ``## ...`` sections of implementation.md.
+    """
     folder = f"changes/archive/{name}" if archived else f"changes/{name}"
     listed = "\n".join(f"  - {reference}" for reference in (items or []))
-    write(
-        root,
-        f"{folder}/change.md",
-        f"---\ntitle: {name}\nstatus: {status}\nitems:\n{listed}\nopened: 2026-09-20\nclosed: {closed}\n---\n## Why\n",
-    )
-    write(root, f"{folder}/work.md", work or "# w\n\n## Checklist\n- [ ] step\n")
-    if design:
-        write(root, f"{folder}/design.md", "# Design\n\n## Approach\nx\n")
+    write(root, f"{folder}/tasks.md", f"---\nstatus: {tasks}\nitems:\n{listed}\n---\n{body}")
+    if design is not None:
+        write(root, f"{folder}/design.md", f"---\nstatus: {design}\n---\n# Design\n\n## Approach\nx\n")
+    if implementation is not None:
+        write(root, f"{folder}/implementation.md", f"---\nstatus: {implementation}\n---\n{entries}")
 
 
 @pytest.fixture
@@ -94,9 +96,9 @@ def repo(tmp_path: Path) -> Path:
 def populated(repo: Path) -> Path:
     """Two open changes and one archived, in a consistent state.
 
-    - account-closure (review): spec privacy/account-closure, awaiting the human's feedback
-    - fix-rounding (open): bug rounding, in progress
-    - archived 2026-09-10-audit-trail: spec aml/audit-trail, approved and done
+    - account-closure: spec privacy/account-closure, in review (design and tasks approved, QA and review pass)
+    - fix-rounding: bug rounding, in progress
+    - archived 2026-09-10-audit-trail: spec aml/audit-trail, implementation approved
     - backlog: bug wrong-currency, spec privacy/consent (approved), task upgrade-deps
     """
     spec(repo, "privacy/account-closure", priority="high")
@@ -109,19 +111,26 @@ def populated(repo: Path) -> Path:
     change(
         repo,
         "account-closure",
-        status="review",
         items=["spec: privacy/account-closure"],
-        design=True,
-        work="# w\n\n## Checklist\n- [x] a\n- [ ] b\n\n## Summary\nDone.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n",
+        body="## Tasks\n- [x] a\n- [x] b\n",
+        design="approved",
+        implementation="review",
+        entries="## Summary\nDone.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass\n",
     )
-    change(repo, "fix-rounding", items=["bug: rounding"], work="# w\n\n## Checklist\n- [x] test\n\n## Summary\nWIP.\n")
+    change(
+        repo,
+        "fix-rounding",
+        items=["bug: rounding"],
+        body="## Tasks\n- [x] test\n- [ ] fix\n",
+        implementation="in-progress",
+        entries="## Summary\nWIP.\n",
+    )
     change(
         repo,
         "2026-09-10-audit-trail",
-        status="done",
         items=["spec: aml/audit-trail"],
-        closed="2026-09-10",
+        implementation="approved",
+        entries="## Summary\nx\n",
         archived=True,
-        work="# w\n\n## Summary\nx\n\n## Feedback\nApproved: Yes\n",
     )
     return repo

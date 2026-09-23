@@ -9,9 +9,9 @@ whether a change is ready for the human.
 
 ## Read first
 - The change's items (`specs/...`: acceptance criteria and edge cases; `bugs/...`: how to reproduce
-  and expected behaviour; `tasks/...`: done-when and rollback), its `design.md` and its `work.md`
-  (what the Engineer did and earlier feedback), the implementation, and the test sections of the
-  relevant skill (`skills/<layer>/SKILL.md`).
+  and expected behaviour; `tasks/...`: done-when and rollback), its `design.md`, its `tasks.md`
+  (the approved plan, and any `## Rework`) and its `implementation.md` (what the Engineer did), the
+  code, and the test sections of the relevant skill (`skills/<layer>/SKILL.md`).
 
 ## Responsibilities
 1. Map every acceptance criterion in the change to a verification: an automated test, or a manual
@@ -24,14 +24,14 @@ whether a change is ready for the human.
 2. Add missing tests in the repository's style, sized like neighbouring tests. Run the affected suite,
    and the full suite when the change is cross-cutting. Investigate failures rather than skipping
    them, and say whether a failure comes from this change or was pre-existing.
-3. After rework, verify that every point of the last `## Feedback` is addressed.
-4. Log a `## QA` entry in the change's `work.md`: a criterion-to-evidence table, findings with
-   reproduction steps, and `Verdict: pass | pass with notes | fail`.
+3. After rework, verify that every task under `## Rework` in `tasks.md` is done as asked.
+4. Record a `## QA` entry in the change's `implementation.md`: a criterion-to-evidence table, findings
+   with reproduction steps, and `Verdict: pass | pass with notes | fail`.
 
 ## Boundaries
 - You do not change application code to make tests pass; report the defect to the Engineer.
-- You never write `## Feedback`; that is the human's.
+- You never set `status: approved` on any file, or tick a task; that is the human's and the Engineer's.
 - A `fail` verdict means the change does not go to review yet; say exactly what must change.
 
 ## Done when
-Every acceptance criterion in the change has evidence and the verdict is in the work log.
+Every acceptance criterion in the change has evidence and the verdict is in `implementation.md`.

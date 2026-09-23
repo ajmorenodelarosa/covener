@@ -5,7 +5,7 @@ spec:                       # specs/[<domain>/]<name>.md -> status:   what the p
   states: [draft, approved, done]
   transitions:
     draft: [approved]       # human approves the text
-    approved: [draft, done] # done only after a change implemented it and the human approved the work
+    approved: [draft, done] # done only after a change implemented it and the human approved the implementation
     done: [draft]           # editing a done spec (extend, change or remove a requirement) reopens it
   human_gated: [[draft, approved], [approved, done]]
 
@@ -19,21 +19,26 @@ task:                       # tasks/<id>.md -> status:   work that changes neith
   transitions: { open: [done], done: [] }
   human_gated: [[open, done]]
 
-change:                     # changes/<name>/change.md -> status:   the unit of work
-  states: [open, review, done]
-  transitions:
-    open: [review]          # agents finished; feedback requested
-    review: [open, done]
-  human_gated: [[review, done]]
+change:                     # changes/<name>/: the unit of work. A folder, no status of its own
+  files:
+    design.md:              # how it will be built; optional; the engineer writes it, the human approves it
+      states: [draft, approved]
+      human_gated: [[draft, approved]]
+    tasks.md:               # the items it covers and the plan; the engineer writes it, the human approves it
+      states: [draft, approved]
+      human_gated: [[draft, approved]]
+    implementation.md:      # what happened; the agents write it, the human approves the result
+      states: [in-progress, review, approved]
+      human_gated: [[review, approved]]
+  states: [not_started, awaiting_design, awaiting_tasks, in_progress, in_review, approved, done]   # derived
+  rule: >-
+    design.md draft -> awaiting_design; tasks.md draft -> not_started (no task) or awaiting_tasks;
+    tasks approved -> in_progress until every task is ticked and implementation.md is in review
+    (in_review); implementation approved -> approved; in changes/archive/ -> done
   rules:
     - a change takes approved specs, open bugs and open tasks
     - an item is in at most one open change
-    - a change is done only when its work log ends with "Approved: Yes"
-    - "`covener change archive <name>` refuses without that approval, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"
-
-work:                       # derived from changes/<name>/work.md, never stored
-  states: [not_started, awaiting_design, in_progress, awaiting_feedback, changes_requested, approved]
-  rule: 'the last "## ..." entry decides (the ## Checklist does not count); a "## Feedback" entry carries Approved: Yes or No'
-  gates:
-    - 'a "## Design" entry proposes the design and stops: no code until the human answers with "## Feedback" and Approved: Yes'
-    - 'an Approved: Yes on a change that is still open approves the design; only on a change in review does it approve the work'
+    - agents never set `status: approved` on any file; the human does, in the file, after asking for changes in the conversation
+    - design before tasks, tasks before code; a change too small for a design has no design.md
+    - rework the human asks for is added as tasks under `## Rework` in tasks.md and reopens the change until they are ticked
+    - "`covener change archive <name>` refuses unless implementation.md is approved and every task is ticked, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"

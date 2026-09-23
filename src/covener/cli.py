@@ -43,16 +43,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="install the default definition for any configured role whose agents/<name>.md is missing",
     )
 
-    change_parser = subparsers.add_parser("change", help="the unit of work: start one, archive it once approved")
+    change_parser = subparsers.add_parser(
+        "change", help="the unit of work: start one, archive it once you have approved its implementation"
+    )
     change_sub = change_parser.add_subparsers(dest="change_command", required=True)
     start = change_sub.add_parser("start", help="create changes/<name>/ for a spec, bug or task")
     start.add_argument("name", help="lowercase words separated by hyphens, e.g. account-closure")
     start.add_argument("--spec", action="append", default=[], metavar="ID", help="an approved spec (repeatable)")
     start.add_argument("--bug", action="append", default=[], metavar="ID", help="an open bug (repeatable)")
     start.add_argument("--task", action="append", default=[], metavar="ID", help="an open task (repeatable)")
-    start.add_argument("--title", default="", help="one line describing the change")
     archive = change_sub.add_parser(
-        "archive", help="mark the change and its items done and move it to changes/archive/ (needs your approval)"
+        "archive",
+        help="mark the change's items done and move it to changes/archive/ (needs implementation.md approved)",
     )
     archive.add_argument("name")
 
@@ -150,7 +152,7 @@ def cmd_change(args: argparse.Namespace) -> int:
         root = _root(args)
         config = load_config(root)
         if args.change_command == "start":
-            report = change_module.start(root, config, args.name, args.spec, args.bug, args.task, args.title)
+            report = change_module.start(root, config, args.name, args.spec, args.bug, args.task)
         else:
             report = change_module.archive(root, config, args.name)
     except (ConfigError, change_module.ChangeError, OSError) as exc:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import states
-from .repo import SKILL_NAME_RE, ItemKey, Repository
+from .repo import SKILL_NAME_RE, Change, ItemKey, Repository
 from .roles import ROLE_KEYS
 
 PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:", "{{")
@@ -140,86 +140,137 @@ def _check_items(repo: Repository, report: Report) -> None:
             report.error(
                 f"{item.kind}.done-without-approval",
                 item.path,
-                f"{item.kind} is 'done' but no change work log ends with 'Approved: Yes' for it",
+                f"{item.kind} is 'done' but no change has an approved implementation for it",
             )
         if item.ready and not open_changes and item.kind == "bug":
             report.act(f"Start a change for bug {item.id}: covener change start <name> --bug {item.id}", item.key)
 
 
-def _check_changes(repo: Repository, report: Report) -> None:
-    seen: dict[str, str] = {}
-    for change in repo.changes:
-        where = f"{change.path}/change.md"
-        if change.name in seen:
-            report.error("change.duplicate-name", where, f"another change is already called {change.name!r}")
-        seen[change.name] = change.path
-        if change.status not in states.CHANGE_STATES:
+def _check_change_statuses(change: Change, report: Report) -> bool:
+    """Each file of a change carries a status from the model; False when one does not."""
+    checks = (
+        (change.tasks_file, change.tasks, states.TASKS_STATES, "tasks"),
+        (change.design_file, change.design, states.DESIGN_STATES, "design"),
+        (change.implementation_file, change.implementation, states.IMPLEMENTATION_STATES, "implementation"),
+    )
+    valid = True
+    for where, status, allowed, label in checks:
+        if status is not None and status not in allowed:
             report.error(
-                "change.invalid-status",
+                f"change.invalid-{label}-status",
                 where,
-                f"status {change.status or 'missing'!r} is not one of {', '.join(states.CHANGE_STATES)}",
+                f"status {status or 'missing'!r} is not one of {', '.join(allowed)}",
             )
+            valid = False
+    return valid
+
+
+def _check_changes(repo: Repository, report: Report) -> None:
+    for change in repo.changes:
+        if not _check_change_statuses(change, report):
             continue
-        if change.archived and change.status != "done":
-            report.error("change.archived-open", where, f"change is in the archive but its status is {change.status!r}")
-        elif change.status == "done" and not change.archived:
-            report.act(f"Archive {change.name}: covener change archive {change.name}", *change.items)
         if not change.items:
-            report.warning("change.no-items", where, "change lists no spec, bug or task")
-        if not change.has_work_log:
-            report.error("change.no-work-log", change.path, "change has no work.md")
-        state = change.state
-        if change.status == "done":
-            # History: only the approval rule applies; items may have moved on since.
-            if not change.approved:
-                report.error(
-                    "change.done-without-approval",
-                    where,
-                    f"change is 'done' but {change.work_file} does not end with 'Approved: Yes' "
-                    f"(state: {state.replace('_', ' ')})",
+            report.warning("change.no-items", change.tasks_file, "change lists no spec, bug or task")
+        if change.archived:
+            # History: only the approval rules apply; items may have moved on since.
+            drafts = [
+                (where, status)
+                for where, status in (
+                    (change.implementation_file, change.implementation),
+                    (change.tasks_file, change.tasks),
+                    (change.design_file, change.design),
                 )
-            else:
-                for key in change.items:
-                    item = repo.item_by_key.get(key)
-                    if item is not None and item.status != "done":
-                        report.warning(
-                            f"{key[0]}.not-done",
-                            item.path,
-                            f"work approved in change {change.name} but status is {item.status!r}",
-                        )
+                if status != "approved" and (status is not None or where == change.implementation_file)
+            ]
+            if drafts:
+                where, status = drafts[0]
+                filename = where.rsplit("/", 1)[1]
+                report.error(
+                    "change.archived-without-approval",
+                    where,
+                    f"change is in the archive but {filename} is {status or 'missing'!r}, not 'approved'",
+                )
+                continue
+            for key in change.items:
+                item = repo.item_by_key.get(key)
+                if item is not None and item.status != "done":
+                    report.warning(
+                        f"{key[0]}.not-done",
+                        item.path,
+                        f"implementation approved in change {change.name} but status is {item.status!r}",
+                    )
             continue
         for key in change.items:
             kind, item_id = key
             item = repo.item_by_key.get(key)
             if item is None:
-                report.error("change.unknown-item", where, f"lists unknown {kind} {item_id!r}")
+                report.error("change.unknown-item", change.tasks_file, f"lists unknown {kind} {item_id!r}")
                 continue
             if not item.ready and item.status != "done":
                 report.error(
                     "change.item-not-ready",
-                    where,
+                    change.tasks_file,
                     f"{item.path} is {item.status!r}; a change only takes {states.READY_STATE[kind]} {kind}s",
                 )
+        # The order of the gates: design before tasks, tasks before code.
+        if change.tasks == "approved" and change.design == "draft":
+            report.error(
+                "change.tasks-before-design",
+                change.tasks_file,
+                f"tasks are approved while {change.design_file} is still a draft",
+            )
+        if change.implementation is not None and change.tasks != "approved":
+            report.error(
+                "change.implementation-before-tasks",
+                change.implementation_file,
+                f"work started while {change.tasks_file} is still a draft: no code before the tasks are approved",
+            )
         failing = [role for role, verdict in change.verdicts.items() if verdict == "fail"]
-        if change.status == "review" and failing:
+        if change.implementation == "review" and failing:
             report.error(
                 "change.review-with-failing-verdict",
-                change.work_file,
+                change.implementation_file,
                 f"in review while the latest {' and '.join(failing)} verdict is 'fail'",
             )
             report.act(
                 f"Agents: {change.name} is in review with a failing verdict; fix it before asking", *change.items
             )
-        if state == "awaiting_design":
-            report.act(f"Review the design of change {change.name} in {change.path}/design.md", *change.items)
-        elif state == "awaiting_feedback" and not failing:
-            report.act(f"Give feedback on change {change.name} in {change.work_file}", *change.items)
-        elif state == "changes_requested":
-            report.act(f"Agents: rework {change.name} from the feedback in {change.work_file}", *change.items)
-        elif state == "approved" and change.status != "done":
-            report.act(f"Close {change.name}: your approval is in {change.work_file}", *change.items)
-        elif change.status == "review" and state in {"not_started", "in_progress"}:
-            report.warning("change.review-without-work", where, "change is in review but its work log has no entry")
+        if change.approved and change.open_tasks:
+            report.warning(
+                "change.approved-with-open-tasks",
+                change.tasks_file,
+                f"implementation approved with {change.open_tasks} open task(s); tick or remove them to archive",
+            )
+            report.act(
+                f"Tick or remove the {change.open_tasks} open task(s) in {change.tasks_file} before archiving "
+                f"{change.name}",
+                *change.items,
+            )
+        state = change.state
+        if state == "not_started":
+            report.act(
+                f"Agents: plan change {change.name} in {change.tasks_file} (design.md first if it needs one)",
+                *change.items,
+            )
+        elif state == "awaiting_design":
+            report.act(
+                f"Review the design of change {change.name}: set status: approved in {change.design_file}",
+                *change.items,
+            )
+        elif state == "awaiting_tasks":
+            report.act(
+                f"Review the tasks of change {change.name}: set status: approved in {change.tasks_file}", *change.items
+            )
+        elif state == "in_review" and not failing:
+            report.act(
+                f"Review the implementation of change {change.name}: set status: approved in "
+                f"{change.implementation_file}, or add rework tasks to {change.tasks_file}",
+                *change.items,
+            )
+        elif state == "in_progress" and change.implementation == "review":
+            report.act(f"Agents: rework {change.name} from the open tasks in {change.tasks_file}", *change.items)
+        elif state == "approved" and not change.open_tasks:
+            report.act(f"Archive {change.name}: covener change archive {change.name}", *change.items)
 
 
 def validate(repo: Repository) -> Report:

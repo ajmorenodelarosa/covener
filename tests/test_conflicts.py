@@ -32,7 +32,7 @@ def test_content_shaped_like_covener_is_adopted_without_asking(tmp_path: Path) -
     """Their agent, spec, change and skill are already what Covener expects: no conflict, nothing lost."""
     write(tmp_path, "agents/reviewer.md", "---\nname: reviewer\ndescription: ours\n---\nOur reviewer.\n")
     write(tmp_path, "specs/billing/refunds.md", "---\ntitle: Refunds\nstatus: approved\n---\n## Objective\n")
-    write(tmp_path, "changes/some-work/change.md", "---\ntitle: t\nstatus: open\nitems: []\n---\n")
+    write(tmp_path, "changes/some-work/tasks.md", "---\nstatus: draft\nitems: []\n---\n")
     write(tmp_path, "skills/house-style/SKILL.md", "---\nname: house-style\ndescription: ours\n---\nOurs.\n")
     assert preflight(tmp_path, config.Config()) == []
     report = initialize(tmp_path, tools=["claude"])

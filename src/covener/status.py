@@ -25,7 +25,7 @@ class StatusSnapshot:
     bugs: dict[str, int]
     tasks: dict[str, int]
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
-    changes: list[dict[str, Any]]  # open changes: name, status, state, items, checklist, design, verdicts
+    changes: list[dict[str, Any]]  # open changes: name, state, items, tasks, design, implementation, verdicts
     done: list[dict[str, str]]  # kind, id, change, closed
     pending_human_review: int
     pending_spec_approval: int
@@ -87,15 +87,19 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
     for change in repo.open_changes():
         if domain is not None and change.items and not any(keep(key) for key in change.items):
             continue
-        awaiting += change.state in {"awaiting_feedback", "awaiting_design"}
+        # A change in review with a failing verdict is the agents' to fix, not yours to approve.
+        failing = "fail" in change.verdicts.values()
+        awaiting += change.state in {"awaiting_design", "awaiting_tasks"} or (
+            change.state == "in_review" and not failing
+        )
         changes.append(
             {
                 "name": change.name,
-                "status": change.status,
                 "state": change.state,
                 "items": [f"{kind} {item_id}" for kind, item_id in change.items],
-                "checklist": list(change.checklist),
-                "design": change.has_design,
+                "tasks": list(change.checklist),
+                "design": change.design,
+                "implementation": change.implementation,
                 "verdicts": change.verdicts,
             }
         )
@@ -171,14 +175,11 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
     lines += ["", "Changes"]
     if snapshot.changes:
         for change in snapshot.changes:
-            done_n, total = change["checklist"]
-            progress = f", checklist {done_n}/{total}" if total else ""
-            design = ", design" if change["design"] else ""
+            done_n, total = change["tasks"]
+            progress = f", tasks {done_n}/{total}" if total else ""
+            design = ", design approved" if change["design"] == "approved" else ""
             verdicts = "".join(f", {role} {verdict}" for role, verdict in change["verdicts"].items())
-            lines.append(
-                f"  {change['name']} ({change['status']}): {change['state'].replace('_', ' ')}"
-                f"{progress}{design}{verdicts}"
-            )
+            lines.append(f"  {change['name']}: {change['state'].replace('_', ' ')}{progress}{design}{verdicts}")
             for item in change["items"]:
                 lines.append(f"    - {item}")
     else:

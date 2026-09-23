@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # What the product is. A living document: editing a done spec sends it back to draft.
 # ``approved`` is a human decision on the text; ``done`` means a change implemented it and a
-# human approved that work.
+# human approved that implementation.
 SPEC_STATES: tuple[str, ...] = ("draft", "approved", "done")
 SPEC_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("draft", "approved"), ("approved", "done")})
 
@@ -17,19 +17,25 @@ BUG_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("open", "done")})
 TASK_STATES: tuple[str, ...] = ("open", "done")
 TASK_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("open", "done")})
 
-# A change is the unit of work: one or a few items, its design, its work log and your verdict.
-# ``open`` while agents work, ``review`` while the human evaluates, ``done`` once approved.
-CHANGE_STATES: tuple[str, ...] = ("open", "review", "done")
-CHANGE_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("review", "done")})
+# A change is a folder with three files, each approved by the human in its own front matter:
+# ``design.md`` (how; optional), ``tasks.md`` (the plan, and the items the change covers) and
+# ``implementation.md`` (what happened; agents write it, the human approves the result).
+DESIGN_STATES: tuple[str, ...] = ("draft", "approved")
+DESIGN_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("draft", "approved")})
+TASKS_STATES: tuple[str, ...] = ("draft", "approved")
+TASKS_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("draft", "approved")})
+IMPLEMENTATION_STATES: tuple[str, ...] = ("in-progress", "review", "approved")
+IMPLEMENTATION_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("review", "approved")})
 
-# Derived state of a change, computed from its work log and never stored.
-WORK_STATES: tuple[str, ...] = (
-    "not_started",  # no work entry yet (a checklist alone is not work)
-    "awaiting_design",  # the design is proposed and waits for the human, before any code
-    "in_progress",  # work entries, change still open
-    "awaiting_feedback",  # change in review, no feedback after the latest work entry
-    "changes_requested",  # latest entry is feedback with Approved: No
-    "approved",  # latest feedback is Approved: Yes, on a change in review or archived
+# Derived state of a change, computed from those three files and never stored.
+CHANGE_STATES: tuple[str, ...] = (
+    "not_started",  # tasks.md is a draft with no task yet: the engineer has not planned it
+    "awaiting_design",  # design.md is a draft: the human reads it and sets it approved, before the tasks
+    "awaiting_tasks",  # tasks.md is a draft with tasks: the human approves the plan, before any code
+    "in_progress",  # tasks approved; work until every task is ticked and the record is in review
+    "in_review",  # every task ticked and implementation.md in review: the human evaluates the result
+    "approved",  # implementation.md approved by the human: archive it
+    "done",  # in changes/archive/
 )
 
 KINDS: tuple[str, ...] = ("spec", "bug", "task")

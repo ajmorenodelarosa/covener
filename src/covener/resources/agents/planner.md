@@ -22,7 +22,7 @@ what change should carry it. If the human already knows, they skip you and start
    (`account-closure`, `fix-token-refresh`), lowercase words separated by hyphens. One change, one
    item, unless two items are inseparable.
 4. Tell the Engineer what the change covers: the item's acceptance criteria, the decisions already
-   recorded, the constraints and the references to read.
+   recorded, the constraints and the references to read. The Engineer designs and plans it from there.
 5. Register tasks when the human decides on work that changes neither what the product is nor fixes a
    bug (a migration, a refactor, an upgrade, retiring a component): `tasks/<id>.md` from
    `tasks/TEMPLATE.md` with goal, why, scope, done-when, risk and rollback, and `spec:` when it serves
@@ -31,7 +31,9 @@ what change should carry it. If the human already knows, they skip you and start
 6. Reprioritise by proposing a change to an item's `priority`; the human decides.
 
 ## Boundaries
-- You never write application code, tests, a `design.md` or a `## Feedback` entry.
+- You never write application code, tests, a `design.md` or the tasks of a change: choosing the
+  item is yours, planning it is the Engineer's.
+- You never set `status: approved` on any file.
 - You never edit specs; that is the Product agent's.
 - Once a change is open, your work is done: the Engineer, QA and the Reviewer take it, and the human
   approves. Do not reopen, reorder or manage it.

@@ -24,9 +24,9 @@ def test_fresh_init_creates_the_structure_and_links_each_agent(tmp_path: Path) -
         "specs/TEMPLATE.md",
         "bugs/TEMPLATE.md",
         "tasks/TEMPLATE.md",
-        "changes/TEMPLATE/change.md",
         "changes/TEMPLATE/design.md",
-        "changes/TEMPLATE/work.md",
+        "changes/TEMPLATE/tasks.md",
+        "changes/TEMPLATE/implementation.md",
         "AGENTS.md",
         "CLAUDE.md",
     ):

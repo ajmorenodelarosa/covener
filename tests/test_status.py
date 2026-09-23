@@ -38,11 +38,12 @@ def test_status_reports_the_backlog_the_changes_and_what_is_next(populated: Path
         ("spec", "privacy/consent"),
         ("task", "upgrade-deps"),
     ]
-    assert [(c["name"], c["status"], c["state"]) for c in snapshot.changes] == [
-        ("account-closure", "review", "awaiting_feedback"),
-        ("fix-rounding", "open", "in_progress"),
+    assert [(c["name"], c["state"]) for c in snapshot.changes] == [
+        ("account-closure", "in_review"),
+        ("fix-rounding", "in_progress"),
     ]
-    assert snapshot.changes[0]["items"] == ["spec privacy/account-closure"] and snapshot.changes[0]["design"]
+    assert snapshot.changes[0]["items"] == ["spec privacy/account-closure"]
+    assert snapshot.changes[0]["design"] == "approved" and snapshot.changes[1]["design"] is None
     assert snapshot.done == [
         {"kind": "spec", "id": "aml/audit-trail", "change": "2026-09-10-audit-trail", "closed": "2026-09-10"}
     ]
@@ -50,7 +51,8 @@ def test_status_reports_the_backlog_the_changes_and_what_is_next(populated: Path
     for action in (
         "Review and approve specs/aml/monitoring.md (draft)",
         "Start a change for bug wrong-currency: covener change start <name> --bug wrong-currency",
-        "Give feedback on change account-closure in changes/account-closure/work.md",
+        "Review the implementation of change account-closure: set status: approved in "
+        "changes/account-closure/implementation.md, or add rework tasks to changes/account-closure/tasks.md",
     ):
         assert action in snapshot.actions, action
     # The rendered report is what a human and an agent both read.
@@ -58,7 +60,8 @@ def test_status_reports_the_backlog_the_changes_and_what_is_next(populated: Path
     for line in (
         "  Domains: aml 2, privacy 2",
         "  - bug wrong-currency (priority 3)",
-        "  account-closure (review): awaiting feedback, checklist 1/2, design, qa pass, review pass",
+        "  account-closure: in review, tasks 2/2, design approved, qa pass, review pass",
+        "  fix-rounding: in progress, tasks 1/2",
         "    - spec privacy/account-closure",
         "  - spec aml/audit-trail (2026-09-10-audit-trail 2026-09-10)",
     ):
@@ -71,25 +74,35 @@ def test_nothing_is_done_without_the_humans_approval(populated: Path) -> None:
     """The one rule no agent can route around: it is a check, not a request."""
     spec(populated, "privacy/account-closure", status="done", priority="high")
     assert "spec.done-without-approval" in errors(populated)
-    change(populated, "account-closure", status="done", items=["spec: privacy/account-closure"])
-    assert "change.done-without-approval" in errors(populated)
+    # An archived change whose implementation you never approved is an error, wherever it sits.
     change(
         populated,
-        "account-closure",
-        status="done",
+        "2026-09-21-account-closure",
         items=["spec: privacy/account-closure"],
-        work="# w\n\n## Summary\nx\n\n## Feedback\nApproved: Yes\n",
+        implementation="review",
+        archived=True,
     )
-    assert not {code for code in errors(populated) if code.endswith("done-without-approval")}
-    # A later "No" is the verdict that counts: the change is open again.
+    assert {"change.archived-without-approval", "spec.done-without-approval"} <= errors(populated)
     change(
         populated,
-        "account-closure",
-        status="done",
+        "2026-09-21-account-closure",
         items=["spec: privacy/account-closure"],
-        work="# w\n\n## Feedback\nApproved: Yes\n\n## Feedback\nApproved: No\n",
+        implementation="approved",
+        archived=True,
     )
-    assert {"change.done-without-approval", "spec.done-without-approval"} <= errors(populated)
+    assert not {code for code in errors(populated) if "approval" in code}
+    # The approval lives in the archived record, nowhere else, and every file of an archived change is approved.
+    change(
+        populated,
+        "2026-09-21-account-closure",
+        items=["spec: privacy/account-closure"],
+        tasks="draft",
+        implementation="approved",
+        archived=True,
+    )
+    assert "change.archived-without-approval" in errors(populated)
+    (populated / "changes" / "archive" / "2026-09-21-account-closure" / "implementation.md").unlink()
+    assert "change.archived-without-approval" in errors(populated)
 
 
 def test_an_item_belongs_to_one_open_change_and_must_be_ready(populated: Path) -> None:
@@ -101,16 +114,12 @@ def test_an_item_belongs_to_one_open_change_and_must_be_ready(populated: Path) -
 
 
 def test_the_archive_keeps_history_even_when_the_item_moved_on(populated: Path) -> None:
-    change(populated, "2026-09-10-audit-trail", status="review", items=["spec: aml/audit-trail"], archived=True)
-    assert "change.archived-open" in errors(populated)  # an archive holds finished work only
     change(
         populated,
         "2026-09-10-audit-trail",
-        status="done",
         items=["spec: aml/audit-trail", "spec: gone"],
-        closed="2026-09-10",
+        implementation="approved",
         archived=True,
-        work="## Summary\nx\n\n## Feedback\nApproved: Yes\n",
     )
     # Approved work whose item nobody marked done is a warning, not a silent gap.
     spec(populated, "aml/audit-trail", status="approved")
@@ -121,28 +130,43 @@ def test_the_archive_keeps_history_even_when_the_item_moved_on(populated: Path) 
 
 
 def test_a_domain_view_shows_only_that_domains_work(populated: Path) -> None:
+    change(populated, "monitoring", items=["spec: aml/monitoring"], tasks="draft", body="")  # aml, not planned yet
+    spec(populated, "aml/monitoring")
     _, _, privacy = compute(populated, config.load(populated), domain="privacy")
     assert privacy.specs["total"] == 2 and privacy.domains == {"privacy": 2}
+    assert not any("monitoring" in action for action in privacy.actions)
     assert [c["name"] for c in privacy.changes] == ["account-closure", "fix-rounding"]  # the bug names a privacy spec
     assert [(e["kind"], e["id"]) for e in privacy.backlog] == [("spec", "privacy/consent")]
     assert render_text(privacy).splitlines()[0] == "Covener (domain: privacy)"
     assert not any("aml/monitoring" in action for action in privacy.actions)
     _, _, aml = compute(populated, config.load(populated), domain="aml")
-    assert aml.changes == [] and [e["id"] for e in aml.done] == ["aml/audit-trail"]
+    assert [c["name"] for c in aml.changes] == ["monitoring"] and [e["id"] for e in aml.done] == ["aml/audit-trail"]
+    assert any(action.startswith("Agents: plan change monitoring") for action in aml.actions)
 
 
 def test_broken_files_are_reported_and_nothing_crashes(populated: Path) -> None:
-    write(populated, "changes/no-log/change.md", "---\ntitle: t\nstatus: open\nitems: []\n---\n")
+    write(populated, "changes/no-tasks/design.md", "---\nstatus: draft\n---\n")  # a change is its tasks.md
+    write(populated, "changes/no-front-matter/tasks.md", "## Tasks\n- [ ] a\n")
+    change(populated, "no-items")
+    change(populated, "bad-status", items=["task: upgrade-deps"], tasks="shipped")  # states the model does not have
+    change(populated, "bad-design", items=["bug: wrong-currency"], design="ok", implementation="done")
     write(populated, "specs/broken.md", "---\ntitle: [\n---\n")
     write(populated, "agents/README.md", "# how this team works\n")  # not an agent definition
-    spec(populated, "aml/weird", status="shipped")  # a state the model does not have
-    change(populated, "empty-review", status="review", items=["task: upgrade-deps"], work="# nothing yet\n")
+    spec(populated, "aml/weird", status="shipped")
+    change(populated, "half-done", items=["task: upgrade-deps"], body="## Tasks\n- [ ] a\n", implementation="approved")
     (populated / "bugs" / "latin.md").write_bytes(b"---\ntitle: caf\xe9\nstatus: open\n---\n")
     bug(populated, "orphan", spec="privacy/ghost")
     (populated / "agents" / "qa.md").unlink()
     found = codes(populated)
-    assert {"change.no-work-log", "change.no-items", "parse", "bug.unknown-spec", "agent.missing"} <= found
-    assert {"spec.invalid-status", "change.review-without-work"} <= found
+    assert {
+        "change.invalid-tasks-status",
+        "change.invalid-design-status",
+        "change.invalid-implementation-status",
+    } <= found
+    assert {"change.no-items", "parse", "bug.unknown-spec", "agent.missing"} <= found
+    assert {"spec.invalid-status", "change.approved-with-open-tasks"} <= found
+    problems = {issue.path for issue in compute(populated, config.load(populated))[1].errors if issue.code == "parse"}
+    assert {"changes/no-tasks", "changes/no-front-matter/tasks.md", "specs/broken.md"} <= problems
     assert "agent.incomplete" not in found
     # Turning the role off is how a team of four stops being told about the fifth agent.
     cfg = config.Config()

@@ -10,9 +10,10 @@ source of truth, the conversation is the interface, and humans approve.
 - Bugs, what is wrong: `bugs/<id>.md` (`status: open | done`; `spec:` names the affected spec)
 - Tasks, work that changes neither what the product is nor fixes a bug (migrations, refactors,
   upgrades, removals): `tasks/<id>.md` (`status: open | done`)
-- Changes, the unit of work: `changes/<name>/` with `change.md` (status and the items it touches),
-  `design.md` (how it will be built, approved by the human before any code; optional) and `work.md`
-  (checklist, summaries, decisions, QA, review and human feedback, chronological).
+- Changes, the unit of work: `changes/<name>/` with three files, each with its own `status`:
+  `design.md` (how it will be built; `draft | approved`; optional), `tasks.md` (the items it covers
+  and the plan, one checkbox per step; `draft | approved`) and `implementation.md` (what happened:
+  summary, decisions, QA, review, rework; `in-progress | review | approved`; agents only).
   Finished changes live in `changes/archive/`
 - Backlog: not a file. Approved specs, open bugs and open tasks that are not in an open change;
   the `status` tool lists it, for the whole repository or one domain
@@ -33,16 +34,19 @@ Rules for every agent:
    `--bug`, `--task`); it refuses an item that is not ready or is already in an open change.
 2. Implementation, tests and reviews happen only for the items the open change lists. A spec that is
    approved, in a change or done is not edited: changes to it are proposed to the Product agent.
-3. Record what you did, decided and found in the change's `work.md`. Short and useful; never chat logs.
-4. Design before code: write `design.md`, log a short `## Design` entry in `work.md`, and stop. The
-   human reads it, edits it or answers with `## Feedback`; no code is written until `Approved: Yes`.
-   A change too small for a design says so and skips the step; a human who wants no design review
-   for a change says so, and the `## Design` entry records it.
-5. Agents never write `## Feedback` entries. When the work is complete and reviewed, set the change to
-   `status: review` and tell the human what to evaluate.
-6. After the human writes `Approved: Yes` on a change in `review`, close it with
+3. Design before tasks, tasks before code. The engineer writes `design.md` as a draft and stops; the
+   human edits it, asks for changes in the conversation and sets `status: approved`. Then the
+   engineer writes the plan in `tasks.md` and stops again until the human approves it. A change too
+   small for a design has no `design.md`. Feedback is given in the conversation and incorporated in
+   the file, never logged.
+4. Agents never set `status: approved` on any file. Record what you did, decided and found in the
+   change's `implementation.md`, short and useful, never chat logs; tick tasks as you finish them.
+5. When every task is ticked and QA and the reviewer pass, set `implementation.md` to
+   `status: review` and tell the human what to evaluate. Rework the human asks for goes into
+   `tasks.md` as tasks under `## Rework`; the change is back in review once they are ticked.
+6. After the human sets `implementation.md` to `status: approved`, close the change with
    `covener change archive <name>`: it marks the items done and moves the change to the archive. It
-   refuses without that approval.
+   refuses without that approval, and while a task is open.
 7. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
 8. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.

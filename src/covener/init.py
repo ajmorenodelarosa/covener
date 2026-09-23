@@ -22,7 +22,7 @@ from typing import Any
 from . import config as config_module
 from . import frontmatter
 from .adapters import ADAPTERS, get_adapter
-from .repo import CHANGE_FILE, is_git_repo
+from .repo import ARCHIVE_DIR, TASKS_FILE, is_git_repo
 from .roles import DEFAULT_AGENT_NAMES, STARTER_SKILLS
 
 MCP_ENTRY: dict[str, object] = {"command": "covener", "args": ["serve"]}
@@ -52,7 +52,7 @@ def _is_ours(path: Path, kind: str) -> bool:
     if path.name in IGNORED_ENTRIES or path.name.startswith("."):
         return True
     if kind == "changes":
-        return path.is_dir() and ((path / CHANGE_FILE).is_file() or path.name == "archive")
+        return path.is_dir() and ((path / TASKS_FILE).is_file() or path.name == ARCHIVE_DIR)
     if kind == "skills":
         return path.is_dir() and (path / SKILL_FILE).is_file()
     if path.is_dir():  # specs/<domain>/, and nested folders of items
@@ -78,7 +78,7 @@ def preflight(root: Path, config: config_module.Config) -> list[Conflict]:
         "specs": "specifications: Markdown with `title` and `status` in front matter",
         "bugs": "bug files: Markdown with `title` and `status` in front matter",
         "tasks": "task files: Markdown with `title` and `status` in front matter",
-        "changes": "change folders, each with a change.md",
+        "changes": "change folders, each with a tasks.md",
         "skills": "skill folders, each with a SKILL.md",
         "agents": "agent definitions: Markdown with `name` and `description` in front matter",
     }
@@ -340,9 +340,8 @@ def initialize(
     _write(root, f"{paths['bugs']}/TEMPLATE.md", read_resource("templates/bug.md"), report)
     _write(root, f"{paths['tasks']}/TEMPLATE.md", read_resource("templates/task.md"), report)
     _write(root, f"{paths['skills']}/README.md", read_resource("templates/skills-README.md"), report)
-    _write(root, f"{paths['changes']}/TEMPLATE/change.md", read_resource("templates/change.md"), report)
-    _write(root, f"{paths['changes']}/TEMPLATE/design.md", read_resource("templates/design.md"), report)
-    _write(root, f"{paths['changes']}/TEMPLATE/work.md", read_resource("templates/work.md"), report)
+    for name in ("design.md", "tasks.md", "implementation.md"):
+        _write(root, f"{paths['changes']}/TEMPLATE/{name}", read_resource(f"templates/{name}"), report)
 
     # Agents: the default team on first install; afterwards only on request.
     default_role_by_name = {name: role for role, name in DEFAULT_AGENT_NAMES.items()}
