@@ -16,6 +16,9 @@ CONFIG_RELATIVE_PATH = Path(".covener") / "config.yaml"
 # Claude Code and Cursor both document subagent names as lowercase letters and hyphens.
 AGENT_NAME_RE = re.compile(r"^[a-z]+(?:-[a-z]+)*$")
 DISABLED_VALUES: frozenset[str] = frozenset({"off", "none", "disabled"})
+# The gates a project may delegate, and to whom. The implementation gate is always the human's.
+GATES: tuple[str, ...] = ("design", "tasks")
+APPROVERS: tuple[str, ...] = ("human", "reviewer")
 
 # The fixed Covener layout.
 PATHS: dict[str, str] = {
@@ -39,6 +42,8 @@ class Config:
     # role -> agent definition name, or None when the project disabled the role.
     agents: dict[str, str | None] = field(default_factory=lambda: dict(DEFAULT_AGENT_NAMES))
     tools: list[str] = field(default_factory=lambda: ["claude", "cursor"])
+    # gate -> "human" (default) or "reviewer": who may set `status: approved` on design.md and tasks.md.
+    approvals: dict[str, str] = field(default_factory=lambda: dict.fromkeys(GATES, "human"))
 
     @property
     def paths(self) -> dict[str, str]:
@@ -49,7 +54,12 @@ class Config:
         return {role: name for role, name in self.agents.items() if name}
 
     def to_dict(self) -> dict[str, Any]:
-        return {"version": self.version, "agents": dict(self.agents), "tools": list(self.tools)}
+        return {
+            "version": self.version,
+            "agents": dict(self.agents),
+            "tools": list(self.tools),
+            "approvals": dict(self.approvals),
+        }
 
     def render(self) -> str:
         header = (
@@ -57,6 +67,8 @@ class Config:
             "# - agents: logical role -> agent definition (agents/<name>.md).\n"
             "#   Two roles may share one agent. Set a role to `off` to disable it.\n"
             "# - tools: IDE integrations linked by `covener init` (claude, cursor)\n"
+            "# - approvals: who approves a change's design.md and tasks.md: `human` (default) or\n"
+            "#   `reviewer`. The implementation is always approved by a human.\n"
         )
         return header + yaml.safe_dump(self.to_dict(), sort_keys=False)
 
@@ -93,7 +105,18 @@ def from_dict(data: dict[str, Any]) -> Config:
         raise ConfigError("'tools' must be a list of strings")
     config.tools = tools
 
-    unknown = set(data) - {"version", "agents", "tools"}
+    approvals = _expect_mapping(data.get("approvals"), "approvals")
+    for gate, approver in approvals.items():
+        if gate not in GATES:
+            raise ConfigError(f"unknown approval gate {gate!r}; the gates are {', '.join(GATES)}")
+        value = approver.strip().lower() if isinstance(approver, str) else approver
+        if value not in APPROVERS:
+            raise ConfigError(f"approvals.{gate} must be one of {', '.join(APPROVERS)}")
+        if value == "reviewer" and config.agents.get("reviewer") is None:
+            raise ConfigError(f"approvals.{gate} is 'reviewer' but the reviewer role is off")
+        config.approvals[gate] = value
+
+    unknown = set(data) - {"version", "agents", "tools", "approvals"}
     if unknown:
         raise ConfigError(f"unknown configuration key(s): {', '.join(sorted(unknown))}")
     return config

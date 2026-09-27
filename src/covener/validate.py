@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import states
-from .repo import SKILL_NAME_RE, Change, ItemKey, Repository
+from .config import APPROVERS, Config
+from .repo import APPROVED_BY_KEY, SKILL_NAME_RE, Change, ItemKey, Repository
 from .roles import ROLE_KEYS
 
 PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:", "{{")
@@ -165,10 +166,61 @@ def _check_change_statuses(change: Change, report: Report) -> bool:
     return valid
 
 
+def _check_approvers(change: Change, config: Config, report: Report) -> None:
+    """A delegated gate says who signed it; a gate that is yours carries no agent's signature."""
+    gates = (
+        ("design", change.design_file, change.design, change.design_approver),
+        ("tasks", change.tasks_file, change.tasks, change.tasks_approver),
+    )
+    for gate, where, status, approver in gates:
+        if status is None:
+            continue
+        filename = where.rsplit("/", 1)[1]
+        if approver and approver not in APPROVERS:
+            report.error(
+                "change.invalid-approver", where, f"{APPROVED_BY_KEY} {approver!r} is not one of {', '.join(APPROVERS)}"
+            )
+            continue
+        if approver and status != "approved":
+            report.error("change.approver-on-draft", where, f"{APPROVED_BY_KEY} is set while status is {status!r}")
+            continue
+        if change.archived:
+            continue  # history: the configuration may have changed since
+        expected = config.approvals[gate]
+        if approver == "reviewer" and expected != "reviewer":
+            report.error(
+                "change.approval-not-delegated",
+                where,
+                f"{filename} is approved by the reviewer but approvals.{gate} is 'human' in .covener/config.yaml",
+            )
+        elif status == "approved" and expected == "reviewer" and not approver:
+            report.error(
+                "change.approver-missing",
+                where,
+                f"approvals.{gate} is 'reviewer': say who approved ({APPROVED_BY_KEY}: reviewer, or human)",
+            )
+
+
+def _gate_action(change: Change, config: Config, gate: str, report: Report) -> None:
+    """What to do next at a design or tasks gate: yours, or the reviewer's when delegated."""
+    where = change.design_file if gate == "design" else change.tasks_file
+    what = "design" if gate == "design" else "tasks"
+    if config.approvals[gate] == "reviewer":
+        report.act(
+            f"Reviewer: approve the {what} of change {change.name} (status: approved, {APPROVED_BY_KEY}: reviewer "
+            f"in {where}) or ask the engineer for changes",
+            *change.items,
+        )
+    else:
+        report.act(f"Review the {what} of change {change.name}: set status: approved in {where}", *change.items)
+
+
 def _check_changes(repo: Repository, report: Report) -> None:
+    config = repo.config
     for change in repo.changes:
         if not _check_change_statuses(change, report):
             continue
+        _check_approvers(change, config, report)
         if not change.items:
             report.warning("change.no-items", change.tasks_file, "change lists no spec, bug or task")
         if change.archived:
@@ -253,14 +305,9 @@ def _check_changes(repo: Repository, report: Report) -> None:
                 *change.items,
             )
         elif state == "awaiting_design":
-            report.act(
-                f"Review the design of change {change.name}: set status: approved in {change.design_file}",
-                *change.items,
-            )
+            _gate_action(change, config, "design", report)
         elif state == "awaiting_tasks":
-            report.act(
-                f"Review the tasks of change {change.name}: set status: approved in {change.tasks_file}", *change.items
-            )
+            _gate_action(change, config, "tasks", report)
         elif state == "in_review" and not failing:
             report.act(
                 f"Review the implementation of change {change.name}: set status: approved in "

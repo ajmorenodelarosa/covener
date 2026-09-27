@@ -25,7 +25,8 @@ class StatusSnapshot:
     bugs: dict[str, int]
     tasks: dict[str, int]
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
-    changes: list[dict[str, Any]]  # open changes: name, state, items, tasks, design, implementation, verdicts
+    # open changes: name, state, items, tasks, design, implementation, verdicts, approvers (who signed a gate)
+    changes: list[dict[str, Any]]
     done: list[dict[str, str]]  # kind, id, change, closed
     pending_human_review: int
     pending_spec_approval: int
@@ -87,10 +88,14 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
     for change in repo.open_changes():
         if domain is not None and change.items and not any(keep(key) for key in change.items):
             continue
-        # A change in review with a failing verdict is the agents' to fix, not yours to approve.
+        # A change in review with a failing verdict is the agents' to fix, not yours to approve,
+        # and a gate delegated to the reviewer is not waiting for you either.
         failing = "fail" in change.verdicts.values()
-        awaiting += change.state in {"awaiting_design", "awaiting_tasks"} or (
-            change.state == "in_review" and not failing
+        approvals = repo.config.approvals
+        awaiting += (
+            (change.state == "awaiting_design" and approvals["design"] == "human")
+            or (change.state == "awaiting_tasks" and approvals["tasks"] == "human")
+            or (change.state == "in_review" and not failing)
         )
         changes.append(
             {
@@ -101,6 +106,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
                 "design": change.design,
                 "implementation": change.implementation,
                 "verdicts": change.verdicts,
+                "approvers": change.approvers,
             }
         )
 
@@ -177,9 +183,13 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
         for change in snapshot.changes:
             done_n, total = change["tasks"]
             progress = f", tasks {done_n}/{total}" if total else ""
+            approvers = change["approvers"]
             design = ", design approved" if change["design"] == "approved" else ""
+            if design and approvers.get("design") == "reviewer":
+                design += " by reviewer"
+            plan = ", tasks approved by reviewer" if approvers.get("tasks") == "reviewer" else ""
             verdicts = "".join(f", {role} {verdict}" for role, verdict in change["verdicts"].items())
-            lines.append(f"  {change['name']}: {change['state'].replace('_', ' ')}{progress}{design}{verdicts}")
+            lines.append(f"  {change['name']}: {change['state'].replace('_', ' ')}{progress}{design}{plan}{verdicts}")
             for item in change["items"]:
                 lines.append(f"    - {item}")
     else:

@@ -37,6 +37,7 @@ ITEM_REF_RE = re.compile(r"^(?P<kind>spec|bug|task)\s*[:/]\s*(?P<id>\S+)$", re.I
 RESERVED_NAMES: frozenset[str] = frozenset({"vision", "template", "readme"})
 IGNORED_AGENT_FILES: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 ARCHIVE_DIR = "archive"
+APPROVED_BY_KEY = "approved-by"  # who set `status: approved` on design.md or tasks.md when the gate is delegated
 TASKS_FILE = "tasks.md"
 DESIGN_FILE = "design.md"
 IMPLEMENTATION_FILE = "implementation.md"
@@ -194,7 +195,9 @@ class Change:
     name: str
     items: list[ItemKey] = field(default_factory=list)
     tasks: str = ""  # status of tasks.md
+    tasks_approver: str = ""  # `approved-by` of tasks.md: "" (the human), "human" or "reviewer"
     design: str | None = None  # status of design.md, None when the change has none
+    design_approver: str = ""  # `approved-by` of design.md
     implementation: str | None = None  # status of implementation.md, None until the work starts
     checklist: tuple[int, int] = (0, 0)  # (ticked, total) tasks in tasks.md
     entries: list[Entry] = field(default_factory=list)  # ## sections of implementation.md
@@ -228,6 +231,12 @@ class Change:
     def approved(self) -> bool:
         """The human approved the implementation: the only approval that closes a change."""
         return self.implementation == "approved"
+
+    @property
+    def approvers(self) -> dict[str, str]:
+        """Who signed each delegated gate (``approved-by``), for the gates that carry a signature."""
+        signed = {"design": self.design_approver, "tasks": self.tasks_approver}
+        return {gate: who for gate, who in signed.items() if who}
 
     @property
     def state(self) -> str:
@@ -500,6 +509,7 @@ def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> li
             name=directory.name,
             items=items,
             tasks=tasks_status,
+            tasks_approver=_as_str(document.meta.get(APPROVED_BY_KEY)).lower(),
             checklist=count_checklist(document.body),
             meta=document.meta,
             archived=archived,
@@ -507,6 +517,7 @@ def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> li
         design = _status_of(directory, DESIGN_FILE, rel, problems)
         if design is not None:
             change.design = design[1]
+            change.design_approver = _as_str(design[0].meta.get(APPROVED_BY_KEY)).lower()
         implementation = _status_of(directory, IMPLEMENTATION_FILE, rel, problems)
         if implementation is not None:
             change.implementation = implementation[1]

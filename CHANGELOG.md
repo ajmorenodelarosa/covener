@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.9.0] - 2026-09-27
+
+You can hand the design gate, the plan gate or both to the reviewer and read only the result. The
+implementation is always yours.
+
+### Added
+- `approvals:` in `.covener/config.yaml`: `design` and `tasks`, each `human` (the default, also when
+  absent) or `reviewer`. `init` writes both gates as `human` in a new configuration and never
+  touches an existing one. `reviewer` on a gate while the reviewer role is `off` is a configuration error.
+- `approved-by:` in the front matter of `design.md` and `tasks.md`: the reviewer signs
+  `approved-by: reviewer` when it approves a delegated gate; a person approving a delegated gate
+  writes `approved-by: human`. A gate that is yours carries no signature.
+- Checks: `change.approval-not-delegated` (signed by the reviewer on a gate the configuration keeps
+  for you), `change.approver-missing` (a delegated gate approved with no signature),
+  `change.invalid-approver` and `change.approver-on-draft`. Archived changes are only checked for a
+  valid value, since the configuration may have changed since.
+- `covener status` counts only your gates in *Pending human review*, tells the reviewer what to
+  approve on a delegated gate, prints `design approved by reviewer` and `tasks approved by
+  reviewer`, and the JSON carries `approvers` per change.
+
+### Changed
+- The reviewer is the team's architect and most senior engineer: its identity says so, it is
+  invoked for designs and plans as well as finished changes, and a section tells it how to approve a
+  delegated gate (which checks apply before there is code, the bar for a design, when to escalate:
+  the architecture skill still a template, two rounds without agreement, a decision that is the
+  product's or yours). The only status it ever sets is `approved` on a delegated gate.
+- The engineer hands a delegated design or plan to the reviewer instead of stopping for you, and
+  records what changed after the reviewer's or your objections under `## Decisions` when the reason
+  matters later.
+- The planner is no longer described as optional: it is who you ask what is most important now, and
+  the agent that runs the backlog unattended when the first two gates are delegated.
+- Default models: Opus for the engineer and QA, Fable for product, planner and reviewer.
+- The AGENTS.md block, `.covener/states.yaml` and the `design.md` and `tasks.md` templates describe
+  the delegated gate.
+
 ## [0.8.1] - 2026-09-23
 
 ### Fixed

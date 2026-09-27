@@ -121,8 +121,8 @@ knowledge/                          optional: domain documents, their Markdown, 
 skills/<name>/SKILL.md              this project's conventions; .claude/skills and .agents/skills link to each skill
 agents/<name>.md                    one file per agent; .claude/agents and .cursor/agents link to each file
 AGENTS.md                           a small block every coding agent reads (CLAUDE.md imports it)
-.covener/config.yaml                role to agent mapping and tools; nothing else
-.covener/states.yaml                the states and the human gates, as the agents read them
+.covener/config.yaml                role to agent mapping, tools, and who approves the design and the plan
+.covener/states.yaml                the states and the gates, as the agents read them
 ```
 
 **Which file?** If in a year someone must read it to know what the product is, it is a spec. If it
@@ -162,16 +162,37 @@ The rule is executed, not merely reported.
 **Three gates, one mechanism.** Design before tasks, tasks before code, and you approve each in the
 file itself, the way you approve a spec.
 
-| File | Written by | Status | You |
+| File | Written by | Status | Approved by |
 |---|---|---|---|
-| `design.md` | engineer | `draft`, `approved` | edit it, ask for changes, set it `approved`. Optional: a change too small for a design has none. |
-| `tasks.md` | engineer | `draft`, `approved` | approve the plan: one checkbox per step, each naming the criterion it serves. |
-| `implementation.md` | agents only | `in-progress`, `review`, `approved` | approve the result once the engineer has set it to `review`. |
+| `design.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: edit it, ask for changes, set it `approved`. Optional: a change too small for a design has none. |
+| `tasks.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: one checkbox per step, each naming the criterion it serves. |
+| `implementation.md` | agents only | `in-progress`, `review`, `approved` | always you, once the engineer has set it to `review`. |
 
 Feedback goes in the conversation and ends up in the file: the engineer revises `design.md` until
 you approve it, and rework after review is a task you add, or ask for, under `## Rework` in
 `tasks.md`, which puts the change back in progress until it is ticked. Your part is three status
 lines, one per file, and git records who wrote each one.
+
+**Delegating a gate.** When you would rather read the result than every design and plan, hand the
+first two gates to the reviewer, the team's architect:
+
+```yaml
+# .covener/config.yaml
+approvals:
+  design: reviewer   # human (default) or reviewer
+  tasks: reviewer
+```
+
+The cycle does not change, only who the engineer stops for. The reviewer judges the design against
+`skills/architecture/SKILL.md`, the spec and the cited evidence, and the plan against the criteria
+it must cover; it approves by setting `status: approved` and `approved-by: reviewer` in the file, or
+says in the conversation what must change and the engineer revises. It escalates to you instead of
+approving when the architecture skill is still the template, after two rounds without agreement,
+or when the decision is about what the product should be. Anything absent from `approvals:` is
+yours, and the implementation always is: `covener status` counts only your gates as pending, and
+`status --strict` fails on a design or plan the reviewer signed on a gate you did not delegate, or
+on a delegated gate approved with no `approved-by`. The signature is a line in the file, so the
+archive says which changes a person read before code and which ones the reviewer did.
 
 **Where architecture lives.** `design.md` describes one change and is archived with it. What every
 change must respect, the shape of the system, its boundaries, the patterns it uses and the decisions
@@ -276,8 +297,8 @@ Next
   * Review the implementation of change account-closure: set status: approved in changes/account-closure/implementation.md, or add rework tasks to changes/account-closure/tasks.md
 ```
 
-*Pending human review* counts the three gates: a design, a plan or an implementation waiting for
-you. `--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings,
+*Pending human review* counts the gates that are yours: a design, a plan or an implementation
+waiting for you; a gate delegated to the reviewer is on its list, not yours. `--domain <name>` to focus on one domain, `--json` for machines, `--verbose` for warnings,
 `--strict` to fail CI on errors. No model is involved; it only reads files.
 
 Errors are the rules that protect your authority and the repository's consistency: an item `done`
@@ -285,7 +306,8 @@ or a change archived without your approval of its implementation; tasks approved
 design, or an implementation started over draft tasks; an item in two open changes; a draft spec or
 an unknown id in a change; a change with no `tasks.md`; invalid statuses or unparsable files; a
 change in `review` whose latest QA or review verdict is `fail`, so you are never asked to approve
-work an agent failed; a missing vision; a configured agent without a definition; a skill that
+work an agent failed; a design or plan signed by the reviewer on a gate you did not delegate, or a
+delegated gate approved with no signature; a missing vision; a configured agent without a definition; a skill that
 breaks the standard (its `name` not matching its folder, or no description). Archived changes are
 history: only the approval rules apply to them, so a spec that later changes never breaks CI.
 
@@ -510,20 +532,23 @@ Claude Code and Cursor read natively. `init` puts one link per agent in `.claude
 | product | vision, impact analysis, specs by domain, bug intake, evidence in `references:` | code, design, approving its own specs |
 | engineer | the design, the plan, the implementation, fixes (regression test first), the record | editing specs, setting anything to `approved` |
 | qa | tests from acceptance criteria, acceptance verification, regressions | changing application code, ticking tasks |
-| reviewer | consistency with the domain, architecture, security, quality, compliance against citations | editing anything |
-| planner (optional) | what to work on next, and starting the change for it | the design or the plan of a change; anything once it is open |
+| reviewer | consistency with the domain, architecture, security, quality, compliance against citations; approving the design and the plan when `approvals:` delegates them | editing anything; approving what was not delegated to it |
+| planner | what to work on next, with reasons, and starting the change for it | the design or the plan of a change; anything once it is open |
 
-There is no architect role. The engineer designs and plans every change, and what an architect
-would carry in their head lives in `skills/architecture/SKILL.md`, which the engineer reads before
-designing and the reviewer judges the design against.
+There is no architect role. The reviewer is the architect: the engineer designs and plans every
+change, what an architect would carry in their head lives in `skills/architecture/SKILL.md`, and
+the reviewer judges every design against it, at the gate when you delegate it and at the end always.
 
-The planner exists for autonomous or batch runs, and for the days you would rather be told what is
-next. Turn it off (`planner: off`) and nothing else changes: you start the change yourself.
+The planner answers one question: what is the most important thing now. Ask it when you want a
+recommendation with reasons before you start a change, and skip it when you already know; with the
+first two gates delegated it can also run the backlog unattended, item by item, until an
+implementation waits for you. Turn it off (`planner: off`) and nothing else changes.
 
 The prompts follow current Anthropic and OpenAI guidance for frontier coding models: clear objective,
 just-in-time reads, explicit outputs, explicit human gates, no permission-seeking for work already
-requested. The model is a property of the agent (`model: claude-sonnet-5` or `inherit`); defaults are a
-fast model for QA, a balanced one for the engineer, a strong one for the rest.
+requested. The model is a property of the agent (`model: claude-opus-5-5` or `inherit`); the defaults
+are the strongest models available: Opus for the engineer and QA, who write the code and the tests,
+and Fable for product, planner and reviewer, who judge.
 
 **Extending the team.** Roles are the contract; agents are files. Rename or disable a role in
 `.covener/config.yaml`; add an agent by adding a file and running `covener init` once to link it (a
@@ -538,6 +563,8 @@ agents:
   reviewer: security-reviewer   # agents/security-reviewer.md
   planner: off
 tools: [claude, cursor]
+approvals:
+  design: reviewer              # tasks stays yours
 ```
 
 ## Install

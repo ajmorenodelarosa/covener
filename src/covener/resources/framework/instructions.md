@@ -26,7 +26,7 @@ source of truth, the conversation is the interface, and humans approve.
   are touching before writing code, and `skills/architecture/SKILL.md` before designing: it holds
   the shape of the system and the decisions every change must respect. `frontend`, `backend` and
   `architecture` ship as templates to fill in
-- State model: `.covener/states.yaml`; role mapping: `.covener/config.yaml`
+- State model: `.covener/states.yaml`; role mapping and who approves each gate: `.covener/config.yaml`
 
 Rules for every agent:
 
@@ -38,8 +38,13 @@ Rules for every agent:
    human edits it, asks for changes in the conversation and sets `status: approved`. Then the
    engineer writes the plan in `tasks.md` and stops again until the human approves it. A change too
    small for a design has no `design.md`. Feedback is given in the conversation and incorporated in
-   the file, never logged.
-4. Agents never set `status: approved` on any file. Record what you did, decided and found in the
+   the file, never logged. `approvals:` in `.covener/config.yaml` may delegate the design gate, the
+   tasks gate or both to the reviewer: the engineer then hands the file to the reviewer, who approves
+   it with `status: approved` and `approved-by: reviewer` or asks for changes, and escalates to the
+   human after two rounds or when `skills/architecture/SKILL.md` is still the template. The
+   implementation is always approved by the human.
+4. Agents never set `status: approved` on any file, except the reviewer on a gate `approvals:`
+   delegates to it, signed `approved-by: reviewer`. Record what you did, decided and found in the
    change's `implementation.md`, short and useful, never chat logs; tick tasks as you finish them.
 5. When every task is ticked and QA and the reviewer pass, set `implementation.md` to
    `status: review` and tell the human what to evaluate. Rework the human asks for goes into

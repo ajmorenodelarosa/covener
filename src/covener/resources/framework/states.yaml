@@ -23,10 +23,10 @@ change:                     # changes/<name>/: the unit of work. A folder, no st
   files:
     design.md:              # how it will be built; optional; the engineer writes it, the human approves it
       states: [draft, approved]
-      human_gated: [[draft, approved]]
+      human_gated: [[draft, approved]]   # or the reviewer, when config.yaml says `approvals: {design: reviewer}`
     tasks.md:               # the items it covers and the plan; the engineer writes it, the human approves it
       states: [draft, approved]
-      human_gated: [[draft, approved]]
+      human_gated: [[draft, approved]]   # or the reviewer, when config.yaml says `approvals: {tasks: reviewer}`
     implementation.md:      # what happened; the agents write it, the human approves the result
       states: [in-progress, review, approved]
       human_gated: [[review, approved]]
@@ -39,6 +39,7 @@ change:                     # changes/<name>/: the unit of work. A folder, no st
     - a change takes approved specs, open bugs and open tasks
     - an item is in at most one open change
     - agents never set `status: approved` on any file; the human does, in the file, after asking for changes in the conversation
+    - "exception: `approvals:` in .covener/config.yaml may delegate the design.md gate, the tasks.md gate or both to the reviewer, who then approves with `status: approved` and `approved-by: reviewer`, or asks the engineer for changes; implementation.md is always the human's"
     - design before tasks, tasks before code; a change too small for a design has no design.md
     - rework the human asks for is added as tasks under `## Rework` in tasks.md and reopens the change until they are ticked
     - "`covener change archive <name>` refuses unless implementation.md is approved and every task is ticked, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"

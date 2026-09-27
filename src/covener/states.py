@@ -17,9 +17,11 @@ BUG_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("open", "done")})
 TASK_STATES: tuple[str, ...] = ("open", "done")
 TASK_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("open", "done")})
 
-# A change is a folder with three files, each approved by the human in its own front matter:
-# ``design.md`` (how; optional), ``tasks.md`` (the plan, and the items the change covers) and
-# ``implementation.md`` (what happened; agents write it, the human approves the result).
+# A change is a folder with three files, each approved in its own front matter: ``design.md``
+# (how; optional), ``tasks.md`` (the plan, and the items the change covers) and
+# ``implementation.md`` (what happened; agents write it, the human approves the result). The first
+# two are the human's by default; ``approvals:`` in the config may delegate either to the reviewer,
+# who then signs ``approved-by: reviewer``. The implementation gate is never delegated.
 DESIGN_STATES: tuple[str, ...] = ("draft", "approved")
 DESIGN_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("draft", "approved")})
 TASKS_STATES: tuple[str, ...] = ("draft", "approved")

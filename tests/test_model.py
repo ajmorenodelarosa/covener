@@ -41,12 +41,21 @@ def test_config_maps_the_roles_and_refuses_nonsense(tmp_path: Path) -> None:
         "engineer": "engineer",
         "reviewer": "reviewer",
     }
+    # Gates are yours unless delegated to the reviewer; the implementation is never a gate you can delegate.
+    assert cfg.approvals == {"design": "human", "tasks": "human"}
+    delegated = config.from_dict({"approvals": {"tasks": "Reviewer"}})
+    assert delegated.approvals == {"design": "human", "tasks": "reviewer"}
+    assert "approvals:" in cfg.render() and config.load(tmp_path).approvals == cfg.approvals
     for data, message in (
         ({"version": 2}, "unsupported config version"),
         ({"agents": {"wizard": "wizard"}}, "unknown agent role"),
         ({"agents": {"qa": "QA-"}}, "lowercase"),  # the harnesses require it
         ({"tools": "claude"}, "list of strings"),
         ({"workflow": {}}, "unknown configuration key"),
+        ({"approvals": {"implementation": "reviewer"}}, "unknown approval gate"),
+        ({"approvals": {"design": "engineer"}}, "must be one of human, reviewer"),
+        ({"approvals": {"design": "off"}}, "must be one of human, reviewer"),
+        ({"agents": {"reviewer": "off"}, "approvals": {"design": "reviewer"}}, "reviewer role is off"),
     ):
         with pytest.raises(config.ConfigError, match=message):
             config.from_dict(data)

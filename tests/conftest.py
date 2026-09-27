@@ -68,17 +68,22 @@ def change(
     implementation: str | None = None,
     entries: str = "",
     archived: bool = False,
+    tasks_by: str = "",
+    design_by: str = "",
 ) -> None:
     """Write a change directory: tasks.md always, design.md and implementation.md when given a status.
 
     ``items`` are references like ``spec: billing/refunds``; ``body`` is the checklist; ``entries``
-    are the ``## ...`` sections of implementation.md.
+    are the ``## ...`` sections of implementation.md; ``tasks_by`` and ``design_by`` sign the gate
+    (``approved-by``).
     """
     folder = f"changes/archive/{name}" if archived else f"changes/{name}"
     listed = "\n".join(f"  - {reference}" for reference in (items or []))
-    write(root, f"{folder}/tasks.md", f"---\nstatus: {tasks}\nitems:\n{listed}\n---\n{body}")
+    signed = f"approved-by: {tasks_by}\n" if tasks_by else ""
+    write(root, f"{folder}/tasks.md", f"---\nstatus: {tasks}\n{signed}items:\n{listed}\n---\n{body}")
     if design is not None:
-        write(root, f"{folder}/design.md", f"---\nstatus: {design}\n---\n# Design\n\n## Approach\nx\n")
+        signed = f"approved-by: {design_by}\n" if design_by else ""
+        write(root, f"{folder}/design.md", f"---\nstatus: {design}\n{signed}---\n# Design\n\n## Approach\nx\n")
     if implementation is not None:
         write(root, f"{folder}/implementation.md", f"---\nstatus: {implementation}\n---\n{entries}")
 

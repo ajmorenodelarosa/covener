@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from conftest import bug, change, spec, task
+from conftest import bug, change, spec, task, write
 from covener import change as change_module
 from covener import config
 from covener.cli import main
-from covener.status import compute
+from covener.status import compute, render_text
 
 
 def cfg(root: Path) -> config.Config:
@@ -61,6 +61,57 @@ def test_start_refuses_what_would_break_the_rules(repo: Path) -> None:
     change_module.start(repo, cfg(repo), "fix-rounding", bugs=["rounding"])
     with pytest.raises(change_module.ChangeError, match="changes/fix-rounding already exists"):
         change_module.start(repo, cfg(repo), "fix-rounding", bugs=["rounding"])
+
+
+def test_a_gate_delegated_to_the_reviewer_is_signed_and_is_not_yours(repo: Path) -> None:
+    """`approvals:` hands the design and the plan to the reviewer; the implementation stays yours."""
+    spec(repo, "privacy/account-closure")
+    items = ["spec: privacy/account-closure"]
+    plan = "## Tasks\n- [ ] a (AC1)\n"
+    delegated = cfg(repo)
+    delegated.approvals["design"] = "reviewer"
+    write(repo, ".covener/config.yaml", delegated.render())
+
+    # The design waits for the reviewer, not for you; the plan still waits for you.
+    change(repo, "account-closure", items=items, tasks="draft", body="", design="draft")
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert snapshot.changes[0]["state"] == "awaiting_design" and snapshot.pending_human_review == 0
+    assert any(a.startswith("Reviewer: approve the design of change account-closure") for a in report.actions)
+    change(repo, "account-closure", items=items, tasks="draft", body=plan, design="approved", design_by="reviewer")
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert snapshot.changes[0]["state"] == "awaiting_tasks" and snapshot.pending_human_review == 1
+    assert snapshot.changes[0]["approvers"] == {"design": "reviewer"} and errors(repo) == set()
+    assert "design approved by reviewer" in render_text(snapshot)
+
+    # A delegated gate says who approved it: the reviewer, or you.
+    change(repo, "account-closure", items=items, tasks="draft", body=plan, design="approved")
+    assert errors(repo) == {"change.approver-missing"}
+    change(repo, "account-closure", items=items, tasks="draft", body=plan, design="approved", design_by="human")
+    assert errors(repo) == set()
+    # A gate you kept carries no reviewer signature, and a signature is only valid on an approval.
+    signed = dict(items=items, body=plan, design="approved", design_by="reviewer")
+    change(repo, "account-closure", tasks="approved", tasks_by="reviewer", **signed)
+    assert errors(repo) == {"change.approval-not-delegated"}
+    change(repo, "account-closure", tasks="draft", tasks_by="reviewer", **signed)
+    assert errors(repo) == {"change.approver-on-draft"}
+    change(repo, "account-closure", items=items, tasks="draft", body=plan, design="approved", design_by="architect")
+    assert errors(repo) == {"change.invalid-approver"}
+
+    # History is not re-judged against today's configuration: only the value must be valid.
+    change(
+        repo,
+        "2026-09-01-old",
+        items=[],
+        implementation="approved",
+        design="approved",
+        design_by="reviewer",
+        archived=True,
+    )
+    delegated.approvals["design"] = "human"
+    write(repo, ".covener/config.yaml", delegated.render())
+    change(repo, "account-closure", tasks="draft", **signed)
+    flagged = {issue.path for issue in compute(repo, cfg(repo))[1].errors}
+    assert flagged == {"changes/account-closure/design.md"}
 
 
 def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
