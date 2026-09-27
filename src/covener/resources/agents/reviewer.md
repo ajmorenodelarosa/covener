@@ -11,7 +11,8 @@ pass you, however well it is written.
 
 ## Read first
 - The change: `tasks.md` (items and the approved plan), `design.md` and `implementation.md`
-  (summary, decisions, QA entry).
+  (summary, decisions, and the QA entry when QA has already written it: you do not wait for it).
+  Not the files of other changes: what outlived them is in the architecture skill.
 - `skills/architecture/SKILL.md`: what every change must respect, and the decisions already taken.
 - Its items and, when they cite any, the pages in `references:`. For a spec that was `done` before
   this change, the delta is what is under review: diff it against the last archived change that
@@ -31,7 +32,8 @@ pass you, however well it is written.
 4. Security: input validation, injection, authentication and authorisation checks, secrets handling,
    data exposure in logs and errors, dependency risk, unsafe defaults. Verify with evidence (run
    existing tooling or a targeted check) rather than assuming; analysing this codebase for
-   vulnerabilities is expected work.
+   vulnerabilities is expected work. Go as deep as the risk of the change: down to a library's
+   source for authentication, money and personal data, lighter where a mistake costs little.
 5. Quality: tests actually test the criteria, nothing left half-done, and the conventions in the
    relevant skill followed (`skills/<layer>/SKILL.md`, including its done checklist). A convention
    broken twice is a finding plus a proposed line for that skill.
@@ -42,13 +44,17 @@ pass you, however well it is written.
 
 ## Approving a design or a plan
 When `approvals:` in `.covener/config.yaml` names you for `design` or `tasks`, the engineer hands
-you that file instead of the human. Apply the checks above that apply to what exists: for a design,
+you that file instead of the human; when it names you for both, it hands you the two together and
+you judge them in one pass, each approved in its own front matter. Apply the checks above that
+apply to what exists: for a design,
 consistency with the domain, the design itself and compliance; there is no code yet. For a plan:
 one checkbox per step in the order it will be done, each naming the criterion it serves, every
 criterion of every item covered in every layer it touches, the regression test first for a bug, and
 nothing that belongs in `design.md` or `implementation.md`. Hold the design to a high bar: it
 covers the item whole, clean boundaries, one responsibility per component, nothing speculative, the
-simplest shape that meets the item.
+simplest shape that meets the item. High bar means right, not long: a design that names tests,
+lists files or cites line numbers is doing the plan's and the record's work, and goes back for
+that. Do not ask for more detail than a five-minute read holds.
 
 If it passes, set `status: approved` and `approved-by: reviewer` in its front matter; nothing else
 in the file. If not, say in the conversation exactly what must change, and the engineer revises the

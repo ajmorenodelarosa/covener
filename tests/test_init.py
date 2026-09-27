@@ -165,6 +165,16 @@ def test_roles_can_be_renamed_disabled_or_shared(tmp_path: Path) -> None:
     assert "agents/product.md" in initialize(tmp_path, install_agents=True).created
 
 
+def test_init_says_when_an_agent_differs_from_the_packaged_one(repo: Path) -> None:
+    """Agents are the project's and are never overwritten; an upgrade has to say what it did not touch."""
+    assert not any("differs from the definition packaged" in n for n in initialize(repo).notes)
+    path = repo / "agents" / "reviewer.md"
+    path.write_text(path.read_text(encoding="utf-8") + "\nProject rule.\n", encoding="utf-8")
+    notes = initialize(repo).notes
+    assert any(n.startswith("agents/reviewer.md differs from the definition packaged") for n in notes)
+    assert path.read_text(encoding="utf-8").endswith("Project rule.\n")
+
+
 def test_tools_are_detected_selected_or_rejected(tmp_path: Path) -> None:
     (tmp_path / ".cursor").mkdir()
     assert initialize(tmp_path).tools == ["cursor"]  # only what the repository already uses

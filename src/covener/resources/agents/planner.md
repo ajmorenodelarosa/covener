@@ -24,8 +24,9 @@ engineer designs and plans, and each gate is approved by whoever `.covener/confi
    `covener change start <name> --spec <id>` (or `--bug`, `--task`), naming it by what it delivers
    (`account-closure`, `fix-token-refresh`), lowercase words separated by hyphens. One change, one
    item, unless two items are inseparable.
-4. Tell the Engineer what the change covers: the item's acceptance criteria, the decisions already
-   recorded, the constraints and the references to read. The Engineer designs and plans it from there.
+4. Tell the Engineer what the change covers: the item, its acceptance criteria and the references
+   it cites. Not a reading list: the Engineer's own prompt says what to read, and the decisions that
+   outlived earlier changes are in `skills/architecture/SKILL.md`, not in their files.
 5. Register tasks when the human decides on work that changes neither what the product is nor fixes a
    bug (a migration, a refactor, an upgrade, retiring a component): `tasks/<id>.md` from
    `tasks/TEMPLATE.md` with goal, why, scope, done-when, risk and rollback, and `spec:` when it serves

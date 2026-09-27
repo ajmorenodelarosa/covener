@@ -70,5 +70,8 @@ delegates the design and the tasks to the reviewer, the agents take every routin
 themselves and record it under `## Decisions` in `implementation.md`, which the human reads when
 they approve the implementation: that is the only human gate left. The planner takes the first
 item of the ordered backlog, never skips one, and moves to the next as soon as a change is in
-review. The run stops only when the reviewer escalates, when QA or the reviewer fail the same
-change twice, or when the backlog is empty.
+review. The run stops when the reviewer escalates, when QA or the reviewer fail the same change
+twice, when the backlog is empty, or when as many changes as the human allowed are waiting for
+them ("until three changes wait for me"; no number means no cap). Every change waiting unapproved
+is code the next one builds on and the human may still send back: approve and archive early. No
+agent reads the files of other changes, open or archived; what outlived them is in the skills.

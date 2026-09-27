@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.9.2] - 2026-09-27
+
+Prompt and template fixes from an unattended run where a design took twenty minutes to write and
+three files repeated the same tests. No change to the checker or the gates.
+
+### Changed
+- `design.md` is bounded: approach, flows, interfaces, decisions with their reason, risks; read in
+  five minutes. No tests, no lists of files, no line numbers: the tests go in `tasks.md` and the
+  evidence in the QA entry. The template, the engineer and the reviewer say so, and a design that
+  does the plan's work goes back for that, not for more detail.
+- With both gates delegated, the engineer hands `design.md` and `tasks.md` together and the
+  reviewer judges them in one pass, each approved in its own front matter.
+- QA and the reviewer are independent and can work at the same time; the reviewer reads the QA entry
+  when it exists and does not wait for it.
+- The reviewer's verification depth follows the risk of the change: a library's source for
+  authentication, money and personal data, lighter where a mistake costs little.
+- No agent reads the files of other changes, open or archived; what outlived them is in the skills.
+  The planner's briefing is the item and its references, not a reading list.
+- Unattended runs also stop when as many changes as the human allowed are waiting for them
+  ("until three changes wait for me"); AGENTS.md says why stacking unapproved changes costs.
+- `covener init` says when an `agents/<name>.md` differs from the definition packaged with the
+  installed version, with the two ways to take the new one. Agents are still never overwritten.
+
+### Upgrading from 0.8 or 0.9.0
+`pip install -U covener && covener init` refreshes `.covener/states.yaml` and the Covener block in
+`AGENTS.md`, and leaves the configuration alone (no `approvals:` means every gate is yours). The
+agent definitions are the project's and are not refreshed: for each one you did not customise,
+delete it and run `covener init --install-agents`; merge the others by hand from the note `init`
+prints.
+
 ## [0.9.1] - 2026-09-27
 
 Prompt fixes from a first unattended run, where the chain broke at the design. No CLI change.

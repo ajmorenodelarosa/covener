@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import __version__, frontmatter
 from . import config as config_module
-from . import frontmatter
 from .adapters import ADAPTERS, get_adapter
 from .repo import ARCHIVE_DIR, TASKS_FILE, is_git_repo
 from .roles import DEFAULT_AGENT_NAMES, STARTER_SKILLS
@@ -376,6 +376,15 @@ def initialize(
         target_rel = f"{paths['agents']}/{agent_name}.md"
         if (root / target_rel).exists():
             report.kept.append(target_rel)
+            default_name = DEFAULT_AGENT_NAMES.get(default_role_by_name.get(agent_name, ""), "")
+            if default_name and not first_init:
+                packaged = read_resource(f"agents/{default_name}.md")
+                if (root / target_rel).read_text(encoding="utf-8") != packaged:
+                    report.notes.append(
+                        f"{target_rel} differs from the definition packaged with covener {__version__}. Agents "
+                        "are yours and are never overwritten: delete it and re-run `covener init --install-agents` "
+                        "to take the packaged one, or merge by hand."
+                    )
             continue
         if not install_defaults:
             report.notes.append(
