@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.9.3] - 2026-09-27
+
+Upgrading no longer means re-editing the agents, and the rest of what a second unattended run turned up.
+
+### Added
+- `covener init --update-defaults` replaces each agent prompt and each file in `changes/TEMPLATE/`
+  with the packaged version, keeping the agent's own front matter: the `model` and `effort` you
+  chose survive the upgrade, and git shows what changed in the prompts. Without the flag `init`
+  only says which ones differ, and it now compares the prompt body, so a changed model is not a
+  customised agent. The change templates get the same notice; they were silently kept before.
+
+### Changed
+- AGENTS.md rule 2: code delivered by another open change is edited only where this change's item
+  requires it, said in `design.md` and recorded in `implementation.md`; the other change's rework
+  keeps waiting for the human. The reviewer treats anything beyond that as unrequested behaviour.
+- `tasks.md` holds engineering steps only: asking QA and the reviewer is not a task. The engineers
+  kept listing it, and a plan showed 30 of 31 while QA worked.
+- QA and the reviewer reread `implementation.md` right before writing and append at the end, since
+  0.9.2 lets them run at the same time.
+
+### Fixed
+- `{{` no longer marks a file as a template: a skill that documents Django, Jinja or Handlebars
+  syntax was reported as unfilled. Only `<!-- TODO` and `TODO:` do.
+
+### Upgrading
+```bash
+pip install -U covener          # uv: uv tool install --reinstall --refresh "covener[mcp]"
+covener init                    # states.yaml and the AGENTS.md block; says what else differs
+covener init --update-defaults  # take the packaged prompts and templates, keeping your models
+```
+Then add `approvals:` to `.covener/config.yaml` by editing the file (the key must appear once):
+```yaml
+approvals:
+  design: reviewer
+  tasks: reviewer
+```
+
 ## [0.9.2] - 2026-09-27
 
 Prompt and template fixes from an unattended run where a design took twenty minutes to write and

@@ -165,14 +165,27 @@ def test_roles_can_be_renamed_disabled_or_shared(tmp_path: Path) -> None:
     assert "agents/product.md" in initialize(tmp_path, install_agents=True).created
 
 
-def test_init_says_when_an_agent_differs_from_the_packaged_one(repo: Path) -> None:
-    """Agents are the project's and are never overwritten; an upgrade has to say what it did not touch."""
-    assert not any("differs from the definition packaged" in n for n in initialize(repo).notes)
-    path = repo / "agents" / "reviewer.md"
-    path.write_text(path.read_text(encoding="utf-8") + "\nProject rule.\n", encoding="utf-8")
+def test_init_says_when_a_default_differs_and_updates_it_on_request(repo: Path) -> None:
+    """Agents and change templates are the project's: never overwritten, replaced only when asked,
+    and changing the model of an agent is not customising its prompt."""
+    assert not any("differs from the" in n for n in initialize(repo).notes)
+    agent = repo / "agents" / "reviewer.md"
+    template = repo / "changes" / "TEMPLATE" / "design.md"
+    agent.write_text(agent.read_text(encoding="utf-8").replace("model: claude-fable-5-1", "model: claude-opus-5-5"))
+    assert not any("agents/reviewer.md differs" in n for n in initialize(repo).notes)
+    agent.write_text(agent.read_text(encoding="utf-8") + "\nProject rule.\n", encoding="utf-8")
+    template.write_text("---\nstatus: draft\n---\n# Old design template\n", encoding="utf-8")
     notes = initialize(repo).notes
     assert any(n.startswith("agents/reviewer.md differs from the definition packaged") for n in notes)
-    assert path.read_text(encoding="utf-8").endswith("Project rule.\n")
+    assert any(n.startswith("changes/TEMPLATE/design.md differs from the template packaged") for n in notes)
+    assert agent.read_text(encoding="utf-8").endswith("Project rule.\n")
+    report = initialize(repo, update_defaults=True)
+    assert {"agents/reviewer.md", "changes/TEMPLATE/design.md"} <= set(report.updated)
+    updated = agent.read_text(encoding="utf-8")
+    assert updated.startswith("---\nname: reviewer\n") and "model: claude-opus-5-5" in updated
+    assert "Project rule." not in updated and "You are the Reviewer" in updated
+    assert "# Old design template" not in template.read_text(encoding="utf-8")
+    assert not any("differs from the" in n for n in initialize(repo).notes)
 
 
 def test_tools_are_detected_selected_or_rejected(tmp_path: Path) -> None:

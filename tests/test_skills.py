@@ -10,6 +10,7 @@ from conftest import links_to, write
 from covener import config
 from covener.init import STARTER_SKILLS, initialize
 from covener.status import compute, render_text
+from covener.validate import PLACEHOLDER_MARKERS
 
 RESOURCES = Path(__file__).resolve().parents[1] / "src" / "covener" / "resources"
 
@@ -84,3 +85,8 @@ def test_status_flags_the_template_and_the_broken_skills(repo: Path) -> None:
     _, report, _ = compute(repo, config.load(repo))
     codes = {issue.code for issue in report.issues}
     assert {"skill.name-mismatch", "skill.incomplete", "skill.no-file", "skill.invalid-name"} <= codes
+
+
+def test_a_skill_that_documents_a_template_language_is_not_a_template() -> None:
+    """`{{ variable }}` is Django, Jinja and Handlebars; only our own markers mean 'fill me in'."""
+    assert "{{" not in PLACEHOLDER_MARKERS and "<!-- TODO" in PLACEHOLDER_MARKERS

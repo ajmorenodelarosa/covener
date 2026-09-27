@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="install the default definition for any configured role whose agents/<name>.md is missing",
     )
+    init_parser.add_argument(
+        "--update-defaults",
+        action="store_true",
+        help="replace agent prompts and changes/TEMPLATE/ with the packaged ones, keeping each agent's front matter",
+    )
 
     change_parser = subparsers.add_parser(
         "change", help="the unit of work: start one, archive it once you have approved its implementation"
@@ -106,6 +111,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             tools=tools,
             dry_run=args.dry_run,
             install_agents=args.install_agents,
+            update_defaults=args.update_defaults,
             adopt=args.adopt,
         )
     except ConflictError as exc:

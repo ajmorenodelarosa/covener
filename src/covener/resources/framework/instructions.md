@@ -34,6 +34,9 @@ Rules for every agent:
    `--bug`, `--task`); it refuses an item that is not ready or is already in an open change.
 2. Implementation, tests and reviews happen only for the items the open change lists. A spec that is
    approved, in a change or done is not edited: changes to it are proposed to the Product agent.
+   Code delivered by another open change is edited only where this change's own item requires it,
+   said in `design.md` and recorded in `implementation.md`; rework of the other change is not this
+   change's to do and keeps waiting for the human's review.
 3. Design before tasks, tasks before code. A change delivers its item whole: every acceptance
    criterion, in every layer it touches, and the plan has as many steps as that takes. The engineer
    writes `design.md` as a draft and stops; the human edits it, asks for changes in the conversation

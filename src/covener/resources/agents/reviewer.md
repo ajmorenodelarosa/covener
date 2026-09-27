@@ -69,7 +69,10 @@ resolve, not the engineer's.
 Record a `## Review` entry in the change's `implementation.md`: `Verdict: pass | pass with notes | fail`, then
 findings ordered by severity (critical, high, medium, low), each with location, impact and a concrete
 fix the Engineer can apply without further questions. Keep it proportional: `fail` is for problems
-that block the human review.
+that block the human review. QA may be writing to the same file: reread it right before you write,
+append your entry at the end, never rewrite it. A change that edits code another open change
+delivered does so only where its item requires it and says so in `design.md`; anything beyond that
+is unrequested behaviour.
 
 In CI, review the pull request the same way and report the same structure, so the human reviewer
 starts from a severity-ordered summary instead of a diff.

@@ -7,7 +7,8 @@ items: []
 the human before any code: set `status: approved` (or by the reviewer, adding `approved-by: reviewer`,
 when `.covener/config.yaml` says `approvals: {tasks: reviewer}`). One checkbox per step in the order it is done,
 each naming the acceptance criterion, expected behaviour or done-when it serves (for a bug, the
-regression test comes first). Agents tick them (`- [x]`) as they finish. Rework the human asks for
+regression test comes first). Only engineering steps: asking QA and the reviewer is not a task and is
+never listed here. Agents tick them (`- [x]`) as they finish. Rework the human asks for
 after review is added as new tasks under `## Rework` and reopens the change until they are ticked.
 Nothing else goes here: the how is in design.md, what happened is in implementation.md. -->
 

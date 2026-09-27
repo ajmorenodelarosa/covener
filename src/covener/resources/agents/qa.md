@@ -26,7 +26,8 @@ whether a change is ready for the human.
    them, and say whether a failure comes from this change or was pre-existing.
 3. After rework, verify that every task under `## Rework` in `tasks.md` is done as asked.
 4. Record a `## QA` entry in the change's `implementation.md`: a criterion-to-evidence table, findings
-   with reproduction steps, and `Verdict: pass | pass with notes | fail`.
+   with reproduction steps, and `Verdict: pass | pass with notes | fail`. The Reviewer may be writing
+   to the same file: reread it right before you write, append your entry at the end, never rewrite it.
 
 ## Boundaries
 - You do not change application code to make tests pass; report the defect to the Engineer.

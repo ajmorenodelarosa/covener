@@ -559,6 +559,12 @@ requested. The model is a property of the agent (`model: claude-opus-5-5` or `in
 are the strongest models available: Opus for the engineer and QA, who write the code and the tests,
 and Fable for product, planner and reviewer, who judge.
 
+**Upgrading.** `pip install -U covener && covener init` refreshes `.covener/states.yaml` and the
+Covener block in `AGENTS.md`, and says which agent prompts and change templates differ from the
+packaged ones. They are yours, so it stops there; `covener init --update-defaults` replaces them
+with the packaged versions and keeps each agent's front matter, so the model you chose survives
+the upgrade and git shows what changed in the prompts.
+
 **Extending the team.** Roles are the contract; agents are files. Rename or disable a role in
 `.covener/config.yaml`; add an agent by adding a file and running `covener init` once to link it (a
 `frontend-engineer.md` next to `engineer.md` is then visible to every tool). For stack-specific
@@ -580,7 +586,7 @@ approvals:
 
 ```bash
 pip install covener            # or: uv tool install covener / pipx install covener
-covener init                   # --tools claude,cursor  --dry-run  --adopt  --install-agents
+covener init                   # --tools claude,cursor  --dry-run  --adopt  --install-agents  --update-defaults
 covener status                 # --domain <name>  --json  --verbose  --strict
 covener change start <name>    # --spec ID  --bug ID  --task ID
 covener change archive <name>

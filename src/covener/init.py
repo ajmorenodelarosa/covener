@@ -164,6 +164,40 @@ def read_resource(relative: str) -> str:
     return resources.files("covener.resources").joinpath(relative).read_text(encoding="utf-8")
 
 
+def _body(text: str) -> str:
+    """The text after the front matter: what a prompt says, as opposed to which model runs it."""
+    try:
+        return frontmatter.parse(text).body.strip()
+    except frontmatter.FrontMatterError:
+        return text.strip()
+
+
+def _with_project_front_matter(existing: str, packaged: str) -> str:
+    """The packaged body under the project's own front matter (its `model`, `effort`, anything it set)."""
+    document = frontmatter.parse(existing)
+    if not document.has_front_matter:
+        return packaged
+    header = existing[: len(existing) - len(document.body)] if document.body else existing.rstrip("\n") + "\n"
+    return header + frontmatter.parse(packaged).body.lstrip("\n")
+
+
+def _default_differs(root: Path, relative: str, packaged: str, report: InitReport, update: bool, what: str) -> None:
+    """A Covener default the project owns: say when it drifted from the package, replace it on request."""
+    target = root / relative
+    existing = target.read_text(encoding="utf-8")
+    if _body(existing) == _body(packaged):
+        return
+    if not update:
+        report.notes.append(
+            f"{relative} differs from the {what} packaged with covener {__version__}. It is yours and is never "
+            "overwritten: `covener init --update-defaults` replaces it, keeping your front matter; git shows the diff."
+        )
+        return
+    if not report.dry_run:
+        target.write_text(_with_project_front_matter(existing, packaged), encoding="utf-8")
+    report.updated.append(relative)
+
+
 def _write(root: Path, relative: str, content: str, report: InitReport) -> None:
     target = root / relative
     if target.exists():
@@ -300,6 +334,7 @@ def initialize(
     dry_run: bool = False,
     install_agents: bool = False,
     adopt: bool = False,
+    update_defaults: bool = False,
 ) -> InitReport:
     root = root.resolve()
     if not root.is_dir():
@@ -357,7 +392,11 @@ def initialize(
     _write(root, f"{paths['tasks']}/TEMPLATE.md", read_resource("templates/task.md"), report)
     _write(root, f"{paths['skills']}/README.md", read_resource("templates/skills-README.md"), report)
     for name in ("design.md", "tasks.md", "implementation.md"):
-        _write(root, f"{paths['changes']}/TEMPLATE/{name}", read_resource(f"templates/{name}"), report)
+        target_rel = f"{paths['changes']}/TEMPLATE/{name}"
+        packaged = read_resource(f"templates/{name}")
+        if (root / target_rel).exists() and not first_init:
+            _default_differs(root, target_rel, packaged, report, update_defaults, "template")
+        _write(root, target_rel, packaged, report)
     stale = [name for name in STALE_TEMPLATES if (root / paths["changes"] / "TEMPLATE" / name).exists()]
     if stale:
         report.notes.append(
@@ -379,12 +418,7 @@ def initialize(
             default_name = DEFAULT_AGENT_NAMES.get(default_role_by_name.get(agent_name, ""), "")
             if default_name and not first_init:
                 packaged = read_resource(f"agents/{default_name}.md")
-                if (root / target_rel).read_text(encoding="utf-8") != packaged:
-                    report.notes.append(
-                        f"{target_rel} differs from the definition packaged with covener {__version__}. Agents "
-                        "are yours and are never overwritten: delete it and re-run `covener init --install-agents` "
-                        "to take the packaged one, or merge by hand."
-                    )
+                _default_differs(root, target_rel, packaged, report, update_defaults, "definition")
             continue
         if not install_defaults:
             report.notes.append(

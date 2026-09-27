@@ -13,7 +13,8 @@ from .config import APPROVERS, Config
 from .repo import APPROVED_BY_KEY, SKILL_NAME_RE, Change, ItemKey, Repository
 from .roles import ROLE_KEYS
 
-PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:", "{{")
+# What the shipped templates leave to fill in. Not `{{`: a skill that documents Django or Jinja is not a template.
+PLACEHOLDER_MARKERS: tuple[str, ...] = ("<!-- TODO", "TODO:")
 
 
 @dataclass(frozen=True)
