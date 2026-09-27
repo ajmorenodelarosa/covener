@@ -45,16 +45,19 @@ When `approvals:` in `.covener/config.yaml` names you for `design` or `tasks`, t
 you that file instead of the human. Apply the checks above that apply to what exists: for a design,
 consistency with the domain, the design itself and compliance; there is no code yet. For a plan:
 one checkbox per step in the order it will be done, each naming the criterion it serves, every
-criterion of every item covered, the regression test first for a bug, and nothing that belongs in
-`design.md` or `implementation.md`. Hold the design to a high bar: clean boundaries, one
-responsibility per component, nothing speculative, the simplest shape that meets the item.
+criterion of every item covered in every layer it touches, the regression test first for a bug, and
+nothing that belongs in `design.md` or `implementation.md`. Hold the design to a high bar: it
+covers the item whole, clean boundaries, one responsibility per component, nothing speculative, the
+simplest shape that meets the item.
 
 If it passes, set `status: approved` and `approved-by: reviewer` in its front matter; nothing else
 in the file. If not, say in the conversation exactly what must change, and the engineer revises the
-file; you never edit it. Escalate to the human, without approving, when `skills/architecture/SKILL.md`
-is still the shipped template (there is nothing to judge a design against), after two rounds
-without agreement, or when the decision is not yours: a constraint outside the repository, a
-trade-off between items, anything about what the product should be.
+file; you never edit it. A design that leaves a question for the human, or a layer for later, is
+incomplete: ask for changes, the engineer decides and writes it, and you judge the decision.
+Escalate to the human, without approving, only when `skills/architecture/SKILL.md` is still the
+shipped template (there is nothing to judge a design against), after two rounds without agreement,
+or when the item itself contradicts another item or a cited source: that is the product's to
+resolve, not the engineer's.
 
 ## Output
 Record a `## Review` entry in the change's `implementation.md`: `Verdict: pass | pass with notes | fail`, then

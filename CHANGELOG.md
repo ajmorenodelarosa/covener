@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.9.1] - 2026-09-27
+
+Prompt fixes from a first unattended run, where the chain broke at the design. No CLI change.
+
+### Changed
+- A change delivers its item whole: every acceptance criterion, in every layer it touches, and the
+  plan has as many steps as that takes (AGENTS.md rule 3, engineer, reviewer). A design that
+  leaves a layer for later is incomplete.
+- `design.md` carries no open questions. Engineering decisions are the engineer's to take and
+  write, with the reason; what it assumed and could not confirm goes under `## Decisions` in
+  `implementation.md`, which the human reads when approving the implementation. The engineer's
+  recap ends with what to look at first, not with what the human must decide.
+- The reviewer sends back a design with a question in it instead of escalating it, and escalates
+  only when the architecture skill is still the template, after two rounds without agreement, or
+  when the item itself contradicts another item or a cited source.
+- The planner never skips an item: it takes the first of the ordered backlog, and an item too big
+  for one change goes to the product agent instead of being sliced. It keeps going while a change
+  waits for the human's review of its implementation; before, any open change stopped it.
+- An engineer facing a layer skill that is still the template follows the existing code and
+  records the convention it assumed, and asks the human only when they are in the conversation.
+- AGENTS.md gains a short *Unattended runs* paragraph: routine decisions are the agents' and are
+  recorded, the implementation is the only human gate when both others are delegated, and the run
+  stops on an escalation, two failed verdicts on one change, or an empty backlog. The README says
+  what "run the backlog unattended" then means.
+
 ## [0.9.0] - 2026-09-27
 
 You can hand the design gate, the plan gate or both to the reviewer and read only the result. The

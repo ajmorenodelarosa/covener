@@ -186,13 +186,22 @@ approvals:
 The cycle does not change, only who the engineer stops for. The reviewer judges the design against
 `skills/architecture/SKILL.md`, the spec and the cited evidence, and the plan against the criteria
 it must cover; it approves by setting `status: approved` and `approved-by: reviewer` in the file, or
-says in the conversation what must change and the engineer revises. It escalates to you instead of
-approving when the architecture skill is still the template, after two rounds without agreement,
-or when the decision is about what the product should be. Anything absent from `approvals:` is
+says in the conversation what must change and the engineer revises. A design with a question for
+you in it is sent back, not escalated: the engineer decides, writes the decision, and you read it
+under `## Decisions` when you approve the implementation. It escalates to you only when the
+architecture skill is still the template, after two rounds without agreement, or when the item
+itself contradicts another item. Anything absent from `approvals:` is
 yours, and the implementation always is: `covener status` counts only your gates as pending, and
 `status --strict` fails on a design or plan the reviewer signed on a gate you did not delegate, or
 on a delegated gate approved with no `approved-by`. The signature is a line in the file, so the
 archive says which changes a person read before code and which ones the reviewer did.
+
+With both gates delegated, "run the backlog unattended" is a complete instruction: the planner
+takes the first item of the ordered backlog, the change goes through design, plan, code, QA and
+review, and as soon as it is in review the planner opens the next one. The run stops when the
+reviewer escalates, when QA or the reviewer fail the same change twice, or when the backlog is
+empty; you come back to a list of implementations to approve. Fill in `skills/architecture` first,
+or the reviewer escalates the first design.
 
 **Where architecture lives.** `design.md` describes one change and is archived with it. What every
 change must respect, the shape of the system, its boundaries, the patterns it uses and the decisions

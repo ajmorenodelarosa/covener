@@ -34,15 +34,18 @@ Rules for every agent:
    `--bug`, `--task`); it refuses an item that is not ready or is already in an open change.
 2. Implementation, tests and reviews happen only for the items the open change lists. A spec that is
    approved, in a change or done is not edited: changes to it are proposed to the Product agent.
-3. Design before tasks, tasks before code. The engineer writes `design.md` as a draft and stops; the
-   human edits it, asks for changes in the conversation and sets `status: approved`. Then the
-   engineer writes the plan in `tasks.md` and stops again until the human approves it. A change too
-   small for a design has no `design.md`. Feedback is given in the conversation and incorporated in
-   the file, never logged. `approvals:` in `.covener/config.yaml` may delegate the design gate, the
-   tasks gate or both to the reviewer: the engineer then hands the file to the reviewer, who approves
-   it with `status: approved` and `approved-by: reviewer` or asks for changes, and escalates to the
-   human after two rounds or when `skills/architecture/SKILL.md` is still the template. The
-   implementation is always approved by the human.
+3. Design before tasks, tasks before code. A change delivers its item whole: every acceptance
+   criterion, in every layer it touches, and the plan has as many steps as that takes. The engineer
+   writes `design.md` as a draft and stops; the human edits it, asks for changes in the conversation
+   and sets `status: approved`. Then the engineer writes the plan in `tasks.md` and stops again until
+   the human approves it. A change too small for a design has no `design.md`. Feedback is given in
+   the conversation and incorporated in the file, never logged, and `design.md` carries no open
+   questions: engineering decisions are the engineer's to take and write down. `approvals:` in
+   `.covener/config.yaml` may delegate the design gate, the tasks gate or both to the reviewer: the
+   engineer then hands the file to the reviewer, who approves it with `status: approved` and
+   `approved-by: reviewer` or asks for changes, and escalates to the human only when
+   `skills/architecture/SKILL.md` is still the template, after two rounds without agreement, or when
+   the item itself contradicts another item. The implementation is always approved by the human.
 4. Agents never set `status: approved` on any file, except the reviewer on a gate `approvals:`
    delegates to it, signed `approved-by: reviewer`. Record what you did, decided and found in the
    change's `implementation.md`, short and useful, never chat logs; tick tasks as you finish them.
@@ -61,3 +64,11 @@ Rules for every agent:
     human. A decision that outlives its change becomes a line under Decisions in
     `skills/architecture/SKILL.md`, in that same change. Skills are how this project's conventions
     and its architecture accumulate.
+
+Unattended runs. When the human asks for the backlog to be run without them and `approvals:`
+delegates the design and the tasks to the reviewer, the agents take every routine decision
+themselves and record it under `## Decisions` in `implementation.md`, which the human reads when
+they approve the implementation: that is the only human gate left. The planner takes the first
+item of the ordered backlog, never skips one, and moves to the next as soon as a change is in
+review. The run stops only when the reviewer escalates, when QA or the reviewer fail the same
+change twice, or when the backlog is empty.
