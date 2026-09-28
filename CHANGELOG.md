@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.10.1] - 2026-09-28
+
+A design review took forty minutes, twice, on a bug fix, and a QA round another thirty-eight after
+the change had already passed twice. The design had descended into the code: parameter parsing,
+error handling, a port number, what a check does on Ctrl-C. QA re-ran the battery the engineer had
+just run, plus an accessibility sweep over 61 pages for a diff about date formatting. Both agents
+were doing the work again instead of doing their own. Prompts only.
+
+### Changed
+- A design names components, boundaries and decisions with their reason, and stops there. Behaviour
+  rules, validation tables, error handling, parameter parsing, ports, flags, signatures, file lists,
+  line numbers and tests belong to `tasks.md`, the code and the QA entry. Adding a check to CI is a
+  design decision; what it does when its port is taken is not. The rule was advice before ("no
+  tests, no lists of files, no line numbers") and lost; it is now what the gate checks first.
+- The reviewer checks altitude before anything else and sends a design carrying the plan's detail
+  back in that one finding, **without reading the rest**. Rejecting on form costs a minute; reading
+  a design as if it were code costs the forty.
+- The design and plan gate is self-contained in the reviewer's prompt, with its own closed read list
+  (the items, `design.md`, `tasks.md`, `skills/architecture/SKILL.md`, `specs/vision.md`, the pages
+  an item cites) and an explicit nothing else: no code, no `git diff`, no `implementation.md`, no
+  `search_knowledge` sweep, no tooling, nothing to run. It resolved to "apply the checks above that
+  apply" before, so the agent walked the code review's six checks, security and compliance included.
+  Needing the code to decide is now the finding, not a reason to go reading.
+- A second round judges the revision against the findings the first gave, and raises something new
+  only where the revision introduced it.
+- A bug usually has no `design.md`: its spec already says what the behaviour must be, and where the
+  fix goes is the plan's. One is written when the fix carries a real choice — more than one
+  reasonable approach with different trade-offs, a change to the shape of the system, or a pattern
+  the same class of bug will follow — and opens with one line saying which; reproducing the bug and
+  locating its cause is not a design, and the reviewer sends that back. "Too small for a design" was
+  left to the engineer's judgement before, and an agent offered optional work does it.
+- The engineer hands a design over with the decision it wants judged and what it assumed, two or
+  three lines. Listing artefacts for the reviewer to check widens the review instead of aiming it.
+- Each check runs once. The engineer runs the suite as its last task, over the change's final state,
+  and records the commands and their exit codes in `implementation.md`. QA reads that instead of
+  running it again, and re-runs only when the evidence is missing, is not from the final state, or
+  contradicts what it sees, saying which of the three. CI runs the suite again regardless, so what
+  QA's independence protects was never the suite. 0.9.4 gave execution to QA to stop the reviewer
+  duplicating it; the duplication simply moved.
+- QA starts from the acceptance criteria, not from the catalogue of checks, and spends its round on
+  the angle nobody else took: every criterion verified from outside, hostile input against what the
+  diff touches, and **a mode the engineer did not use** — the production build rather than the dev
+  server, another time zone, another browser — named in its entry. That is what found a service
+  worker serving the API from cache; re-running the suite found nothing.
+- Scope follows the diff: no accessibility sweep without an interface change, no backend suite for a
+  frontend-only diff, the journeys the change touches rather than all of them. A full sweep is for a
+  cross-cutting change. QA names what it ran and what put it in scope.
+- QA still confirms a bug's regression test fails without the fix, however plainly the record states
+  it: one test against the code before the fix, not the suite. It is the only falsifiable claim in a
+  fix and the one most easily got wrong by accident.
+
+### Upgrading
+```bash
+pip install -U covener            # uv: uv tool install --reinstall --refresh "covener[mcp]"
+git commit -am "wip"              # --update-defaults rewrites the agent prompts
+covener init --update-defaults    # everything init does, plus the new prompts and templates
+git diff                          # what changed in the prompts
+```
+`--update-defaults` is a flag on `init`, so one run is enough. Plain `covener init` refreshes
+`.covener/states.yaml` and the AGENTS.md block but leaves the agent prompts alone, naming the ones
+that differ; this release is almost entirely prompts, so without the flag you get the rules without
+the fix. Your `model:` and `effort:` survive, an agent you renamed is skipped, and `skills/` and
+`.covener/config.yaml` are never touched.
+
 ## [0.10.0] - 2026-09-28
 
 The implementation gate can be turned off, for a prototype built in one go. No one approves, and the

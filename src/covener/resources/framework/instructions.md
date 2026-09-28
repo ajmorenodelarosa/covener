@@ -41,7 +41,13 @@ Rules for every agent:
    criterion, in every layer it touches, and the plan has as many steps as that takes. The engineer
    writes `design.md` as a draft and stops; the human edits it, asks for changes in the conversation
    and sets `status: approved`. Then the engineer writes the plan in `tasks.md` and stops again until
-   the human approves it. A change too small for a design has no `design.md`. Feedback is given in
+   the human approves it. A change too small for a design has no `design.md`, and a bug usually has
+   none: its spec already says what the behaviour must be, so one is written when the fix carries a
+   real choice (more than one reasonable approach, a change to the shape of the system, or a pattern
+   the same class of bug will follow), opening with one line saying which.
+   A design names components, boundaries and decisions with their reason, and stops there: behaviour
+   rules, validation tables, parsing, error handling, file lists and tests belong to `tasks.md` and
+   the code, and a design carrying them goes back unread. Feedback is given in
    the conversation and incorporated in the file, never logged, and `design.md` carries no open
    questions: engineering decisions are the engineer's to take and write down. `approvals:` in
    `.covener/config.yaml` may delegate the design gate, the tasks gate or both to the reviewer: the

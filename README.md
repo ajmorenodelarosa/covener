@@ -164,7 +164,7 @@ file itself, the way you approve a spec.
 
 | File | Written by | Status | Approved by |
 |---|---|---|---|
-| `design.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: edit it, ask for changes, set it `approved`. Optional: a change too small for a design has none. |
+| `design.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: edit it, ask for changes, set it `approved`. Optional: a change too small for a design has none, and a bug usually has none either — one is written when the fix carries a real choice. |
 | `tasks.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: one checkbox per step, each naming the criterion it serves. |
 | `implementation.md` | agents only | `in-progress`, `review`, `approved` | you, once the engineer has set it to `review`; or no one, if you turn the gate off. |
 
@@ -172,6 +172,15 @@ Feedback goes in the conversation and ends up in the file: the engineer revises 
 you approve it, and rework after review is a task you add, or ask for, under `## Rework` in
 `tasks.md`, which puts the change back in progress until it is ticked. Your part is three status
 lines, one per file, and git records who wrote each one.
+
+**What a design is, and is not.** It names components, boundaries and decisions with their reason,
+and stops there: behaviour rules, validation tables, parsing, error handling, file lists and tests
+belong to `tasks.md` and the code. The bound is what keeps the gate cheap. A design that carries the
+plan's detail cannot be judged without verifying code that does not exist yet, the most expensive
+review there is, so it goes back on that alone, before anyone reads the rest of it. A bug usually
+needs no design at all — its spec already says what the behaviour must be — so it gets one when the
+fix carries a real choice: more than one reasonable approach, a change to the shape of the system,
+or a pattern the same class of bug will follow.
 
 **Delegating a gate.** When you would rather read the result than every design and plan, hand the
 first two gates to the reviewer, the team's architect:
@@ -370,6 +379,14 @@ criterion) and the reviewer agent's findings ordered by severity with file and l
 high findings, security, money and data are where you open the code. The rest you check against the
 record. Your verdict is the status of `implementation.md`, and git records who set it and when.
 
+**Each check runs once.** The engineer runs the suite over the change's final state and records the
+commands and their exit codes. QA spends its time where nobody else looks: every criterion verified
+from outside, hostile input against what the diff touches, and a mode the engineer did not use — the
+production build rather than the dev server, another time zone, another browser. The reviewer reads
+and repeats neither. CI runs the suite again regardless. Three agents over the same suite is the
+same evidence three times, not independence, and what a diff does not touch is out of scope however
+routine the check is.
+
 **What a lead sees.** `covener status` across the repository: every open change, its state, task
 progress and the QA and reviewer verdicts, what is waiting for a human, what is inconsistent. A
 domain lead runs `covener status --domain billing`. It is the stand-up, generated from the files.
@@ -525,7 +542,9 @@ tool. Editing one needs nothing: the link points at your file.
 
 **How the team uses them.** The engineer reads `architecture` before designing and the skill for
 the layer it is touching before writing code, and follows their checklists. QA takes its test
-expectations from the same file. The reviewer checks the change against them, and when a convention
+expectations from the same file, which is also where your project says which check covers which
+layer, so QA can tell what a diff puts in scope. Skills are never overwritten by an upgrade, so
+that scoping is yours to keep. The reviewer checks the change against them, and when a convention
 is broken twice, the finding comes with one proposed line for the skill. That is how a project's
 conventions accumulate instead of being re-explained every session.
 
@@ -564,7 +583,7 @@ Claude Code and Cursor read natively. `init` puts one link per agent in `.claude
 |---|---|---|
 | product | vision, impact analysis, specs by domain, bug intake, evidence in `references:` | code, design, approving its own specs |
 | engineer | the design, the plan, the implementation, fixes (regression test first), the record | editing specs, setting anything to `approved` |
-| qa | tests from acceptance criteria, acceptance verification, regressions | changing application code, ticking tasks |
+| qa | tests from acceptance criteria, acceptance verification from outside, hostile input against the diff, the mode the engineer did not use, regressions | changing application code, ticking tasks, repeating the suite the engineer already ran |
 | reviewer | consistency with the domain, architecture, security, quality, compliance against citations; approving the design and the plan when `approvals:` delegates them | editing anything; approving what was not delegated to it |
 | planner | what to work on next, with reasons, and starting the change for it | the design or the plan of a change; anything once it is open |
 
@@ -679,7 +698,8 @@ planned, built, reviewed and approved. The archive gives you the history a sprin
 
 **Does approving the design and the plan slow me down?** Each approval is one status line in the
 file, and the design gate exists only when there is a design: a small change goes straight to the
-tasks. You can also edit `design.md` or `tasks.md` yourself and approve your own version. They are
+tasks, and so does most bug work: a bug gets a design when the fix carries a real choice, not for
+being a bug. You can also edit `design.md` or `tasks.md` yourself and approve your own version. They are
 the cheapest places to catch an agent that understood the task differently.
 
 **Do I need the planner?** No. Set `planner: off` and start changes yourself. It earns its place when

@@ -30,11 +30,15 @@ record the next session needs.
    Exception: a trivial fix the human asks for (one place, no design decision) is done directly, with
    a test if one applies, and reported in your reply; no bug file, no change.
 2. Design first, in `design.md` (from `changes/TEMPLATE/design.md`, `status: draft`): the approach,
-   the flows and states, the data and interfaces, the alternatives you rejected and the risks. Keep
-   it short and concrete: a design is read in five minutes, and one longer than the spec it serves
-   is carrying something that belongs elsewhere. No tests, no lists of files, no line numbers; the
-   tests go in `tasks.md` and the evidence in the QA entry. This is where architecture lives,
-   never in the spec. The design covers the item whole: every acceptance criterion, in every layer
+   the flows and states, the data and interfaces, the alternatives you rejected and the risks. A
+   design names components, boundaries and decisions with their reason, and stops there: behaviour
+   rules, validation tables, error handling, parameter parsing, ports, flags, signatures, file
+   lists, line numbers and tests belong to `tasks.md`, to the code and to the QA entry. Adding a
+   check to CI is a design decision; what it does when its port is taken is not. It is read in five
+   minutes, and one longer than the spec it serves is carrying something that belongs elsewhere;
+   the reviewer sends back a design carrying the plan's detail without reading the rest of it,
+   because judging it would mean verifying code that does not exist yet. This is where architecture
+   lives, never in the spec. The design covers the item whole: every acceptance criterion, in every layer
    it touches; a design that leaves a layer for later is incomplete. Engineering decisions are yours: take them and write them, with the
    reason, in the file. `design.md` carries no open questions; what you assumed and could not
    confirm goes under `## Decisions` in `implementation.md` once you create it. Then stop. The
@@ -42,8 +46,14 @@ record the next session needs.
    revise the file until they do. When `.covener/config.yaml` says `approvals: {design: reviewer}`,
    hand it to the Reviewer instead and revise until it approves or escalates to the human. When
    both gates are the Reviewer's, write `tasks.md` as well and hand the two files together: one
-   pass instead of two. A change too small for a design has no `design.md`: say so and go to the
-   tasks.
+   pass instead of two. Hand it over with the decision you want judged and what you assumed, two or
+   three lines; a list of things for the reviewer to check widens the review instead of aiming it.
+   A bug usually has no `design.md`: its spec already says what the behaviour must be, and where the
+   fix goes is the plan's. Write one when the fix carries a real choice — more than one reasonable
+   approach with different trade-offs, a change to the shape of the system, or a pattern the same
+   class of bug will follow — and open it with one line saying which of the three it is. Reproducing
+   the bug and locating its cause is not a design. A change too small for a design has none either:
+   say so and go to the tasks.
 3. Plan next, in `tasks.md`: one checkbox per step in the order you will do them, each naming the
    acceptance criterion, expected behaviour or done-when it serves (for a bug, the regression test
    comes first). Every criterion has its steps, in every layer; the plan is as long as the item
@@ -59,8 +69,11 @@ record the next session needs.
    test per acceptance criterion. Before you hand over, exercise the adverse paths your own design
    and the item's edge cases name: hostile input, concurrency, a dependency down, a partial failure
    midway. QA verifies your evidence; it does not discover the failures for you, and a change that
-   fails its first QA round pays a full round of fixes and reverification. Run the affected tests;
-   the human already asked for the work, so you do not need permission for what it implies.
+   fails its first QA round pays a full round of fixes and reverification. The suite is yours to run,
+   as your last task, over the change's final state: record in `implementation.md` the commands and
+   their exit codes. QA reads that instead of running it again, so evidence from an earlier state is
+   worse than none — it re-runs what it cannot trust, and the round costs what you saved. The human
+   already asked for the work, so you do not need permission for what it implies.
 6. Record in `implementation.md`: a `## Summary` (what, where, how verified) and `## Decisions` for
    anything that constrains future work: what you assumed where the item or the design left
    something open, and what changed in the design or the plan after the Reviewer's or the human's

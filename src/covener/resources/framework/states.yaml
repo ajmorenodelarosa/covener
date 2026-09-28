@@ -41,6 +41,7 @@ change:                     # changes/<name>/: the unit of work. A folder, no st
     - agents never set `status: approved` on any file; the human does, in the file, after asking for changes in the conversation
     - "exception: `approvals:` in .covener/config.yaml may delegate the design.md gate, the tasks.md gate or both to the reviewer, who then approves with `status: approved` and `approved-by: reviewer`, or asks the engineer for changes; implementation.md is never the reviewer's"
     - "`approvals: {implementation: off}` removes the implementation gate: `covener change archive` closes a change in review when every task is ticked, design and tasks are approved, the latest QA and review verdicts pass and nothing is uncommitted, and writes `approval: off` next to `status: review`; the archive says no one approved it"
-    - design before tasks, tasks before code; a change too small for a design has no design.md
+    - "design before tasks, tasks before code; a change too small for a design has no design.md,
+      and a bug usually has none: one is written when the fix carries a real choice"
     - rework the human asks for is added as tasks under `## Rework` in tasks.md and reopens the change until they are ticked
     - "`covener change archive <name>` refuses unless implementation.md is approved (or closes by the rule above with the gate off) and every task is ticked, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"
