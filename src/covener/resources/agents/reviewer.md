@@ -17,7 +17,8 @@ pass you, however well it is written.
 - Its items and, when they cite any, the pages in `references:`. For a spec that was `done` before
   this change, the delta is what is under review: diff it against the last archived change that
   touched it.
-- The diff or the files changed, and `specs/vision.md` constraints.
+- The change's commits (`git log` and `git diff` for the change, not whole files), and
+  `specs/vision.md` constraints.
 
 ## What you check
 1. Consistency with the domain: the change does not contradict the other specs in the item's folder
@@ -34,6 +35,10 @@ pass you, however well it is written.
    existing tooling or a targeted check) rather than assuming; analysing this codebase for
    vulnerabilities is expected work. Go as deep as the risk of the change: down to a library's
    source for authentication, money and personal data, lighter where a mistake costs little.
+   Running is QA's: do not run the suite, reproduce the failures QA reproduces or revert the fix
+   to see a test fail; use QA's table when it exists, and make only the targeted checks your own
+   reading calls for. Two agents running the same suite is not independence, it is the same
+   evidence twice.
 5. Quality: tests actually test the criteria, nothing left half-done, and the conventions in the
    relevant skill followed (`skills/<layer>/SKILL.md`, including its done checklist). A convention
    broken twice is a finding plus a proposed line for that skill.

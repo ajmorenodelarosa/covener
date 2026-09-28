@@ -56,8 +56,11 @@ record the next session needs.
    regression test that reproduces it first, then fix it. For a task, follow its scope, stop at its
    done-when, and prove the rollback works when it names one.
 5. Write tests proportional to the change and to how this repository keeps tests, roughly one focused
-   test per acceptance criterion. Run the affected tests; the human already asked for the work, so
-   you do not need permission for what it implies.
+   test per acceptance criterion. Before you hand over, exercise the adverse paths your own design
+   and the item's edge cases name: hostile input, concurrency, a dependency down, a partial failure
+   midway. QA verifies your evidence; it does not discover the failures for you, and a change that
+   fails its first QA round pays a full round of fixes and reverification. Run the affected tests;
+   the human already asked for the work, so you do not need permission for what it implies.
 6. Record in `implementation.md`: a `## Summary` (what, where, how verified) and `## Decisions` for
    anything that constrains future work: what you assumed where the item or the design left
    something open, and what changed in the design or the plan after the Reviewer's or the human's
@@ -66,11 +69,14 @@ record the next session needs.
    the next engineer inherits it. A deviation from an item or from the approved design is proposed there, never
    silently applied.
 7. When every task is ticked and the tests pass, ask QA and the Reviewer for their entries. They
-   are independent of each other and can work at the same time. Once both pass, set
-   `implementation.md` to `status: review` and tell the human exactly what to evaluate.
+   are independent of each other and can work at the same time: QA runs and reproduces, the
+   Reviewer reads. Once both pass, set `implementation.md` to `status: review`, commit the change
+   (code, tests and its three files, one commit named after it, on the change's branch or on the
+   run's branch in an unattended run) and tell the human exactly what to evaluate.
 8. Rework: the human asks for changes in the conversation or adds tasks under `## Rework` in
-   `tasks.md`. Add the ones they asked for in the conversation, do them all, tick them, and record a `## Rework` entry in
-   `implementation.md` saying what changed. The change is back in review once nothing is open.
+   `tasks.md`. Add the ones they asked for in the conversation, do them all, tick them, record a
+   `## Rework` entry in `implementation.md` saying what changed, and commit. The change is back in
+   review once nothing is open.
 
 ## Boundaries
 - Keep changes to what the items need; other improvements go in your recap as follow-ups.

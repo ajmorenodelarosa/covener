@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.4] - 2026-09-28
+
+After a day of unattended running: nothing was in git, QA and the reviewer ran the same suite, and
+every change paid a round of fixes because the engineer tested the happy path only. Prompts only.
+
+### Changed
+- Commits are part of the cycle. The engineer commits the change when `implementation.md` goes to
+  `review` (code, tests and the three files, one commit named after the change), again after
+  rework, and the archive is committed too. Nothing waits for review uncommitted: the reviewer
+  reads the commit's diff instead of whole files, and a checkout cannot lose a day's work. An
+  unattended run stacks its changes on one branch; a branch and a pull request per change is for
+  the flow the human drives.
+- QA owns execution: the suite, the reproduction of every failure, the regression test against the
+  reverted fix. The reviewer reads design, code, security and compliance, uses QA's table when it
+  exists, and makes only the targeted checks its own reading calls for. Same suite twice is the
+  same evidence twice, not independence.
+- The engineer exercises the adverse paths its design and the item's edge cases name before handing
+  over: hostile input, concurrency, a dependency down, a partial failure. QA verifies the evidence;
+  it does not discover the failures.
+
 ## [0.9.3] - 2026-09-27
 
 Upgrading no longer means re-editing the agents, and the rest of what a second unattended run turned up.

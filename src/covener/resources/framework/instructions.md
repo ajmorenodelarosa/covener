@@ -53,11 +53,14 @@ Rules for every agent:
    delegates to it, signed `approved-by: reviewer`. Record what you did, decided and found in the
    change's `implementation.md`, short and useful, never chat logs; tick tasks as you finish them.
 5. When every task is ticked and QA and the reviewer pass, set `implementation.md` to
-   `status: review` and tell the human what to evaluate. Rework the human asks for goes into
-   `tasks.md` as tasks under `## Rework`; the change is back in review once they are ticked.
+   `status: review`, commit the change (code, tests and its three files, one commit named after
+   the change) and tell the human what to evaluate. Rework the human asks for goes into
+   `tasks.md` as tasks under `## Rework`; the change is back in review, with a new commit, once
+   they are ticked. Nothing waits for review uncommitted: the reviewer reads the commit's diff,
+   and a `git checkout` must not be able to lose a day's work.
 6. After the human sets `implementation.md` to `status: approved`, close the change with
    `covener change archive <name>`: it marks the items done and moves the change to the archive. It
-   refuses without that approval, and while a task is open.
+   refuses without that approval, and while a task is open. Commit the archive.
 7. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
 8. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
@@ -73,8 +76,11 @@ delegates the design and the tasks to the reviewer, the agents take every routin
 themselves and record it under `## Decisions` in `implementation.md`, which the human reads when
 they approve the implementation: that is the only human gate left. The planner takes the first
 item of the ordered backlog, never skips one, and moves to the next as soon as a change is in
-review. The run stops when the reviewer escalates, when QA or the reviewer fail the same change
-twice, when the backlog is empty, or when as many changes as the human allowed are waiting for
+review. The run works on one branch, with one commit per change when it reaches review and one
+per rework; a branch per change is for the flow the human drives, since rework on a stacked change
+would mean rebasing every change above it. The run stops when the reviewer escalates, when QA or
+the reviewer fail the same change twice, when the backlog is empty, or when as many changes as the
+human allowed are waiting for
 them ("until three changes wait for me"; no number means no cap). Every change waiting unapproved
 is code the next one builds on and the human may still send back: approve and archive early. No
 agent reads the files of other changes, open or archived; what outlived them is in the skills.

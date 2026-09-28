@@ -334,7 +334,9 @@ developers work in parallel without stepping on each other, and a unit of review
   `change start` refuses it in the first place.
 - Specs, bugs and tasks are one file each and there is no backlog file, so there is no shared list to
   fight over.
-- Finished changes are archived by date. Everything is committed.
+- Finished changes are archived by date. Everything is committed: one commit per change when it
+  reaches review, one per rework, one for the archive. In a run the human does not drive, the
+  changes stack on one branch; a branch and a pull request per change is for the flow they do.
 
 **You look three times, and the first two are cheap.** The design and the plan, before the code
 exists, are where an agent about to build the wrong thing well gets caught; the record is where you
