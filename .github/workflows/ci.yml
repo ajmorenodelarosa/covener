@@ -22,3 +22,5 @@ jobs:
       - run: ruff check .
       - run: mypy
       - run: pytest -v
+        env:
+          PYTHONWARNDEFAULTENCODING: "1"

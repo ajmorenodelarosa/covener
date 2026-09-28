@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "covener"
-version = "0.10.2"
+version = "0.10.3"
 description = "Spec-driven development for AI agent teams. Governance for regulated domains and large projects: traceable, auditable, human-approved."
 readme = "README.md"
 license = { text = "MIT" }
@@ -54,6 +54,8 @@ include = ["src/covener", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# With PYTHONWARNDEFAULTENCODING=1 (set in CI), any file I/O without an explicit encoding fails the suite.
+filterwarnings = ["error::EncodingWarning"]
 
 [tool.ruff]
 line-length = 120

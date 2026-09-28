@@ -107,10 +107,10 @@ def test_build_converts_each_source_once_and_writes_the_index(tmp_path: Path) ->
     write(tmp_path, "knowledge/notas/interno.txt", "Nota interna sin citas.")
     assert main(["-C", str(tmp_path), "knowledge", "build", "--no-graph"]) == 0
     converted = tmp_path / "knowledge" / "ley-1437.md"
-    assert converted.is_file() and "## Page 2" in converted.read_text()  # pages stay quotable
-    index = (tmp_path / "knowledge" / "INDEX.md").read_text()
+    assert converted.is_file() and "## Page 2" in converted.read_text(encoding="utf-8")  # pages stay quotable
+    index = (tmp_path / "knowledge" / "INDEX.md").read_text(encoding="utf-8")
     assert "| ley-1437 |" in index and "| decreto-1082 |" in index and "| notas/interno |" in index
-    citations = (tmp_path / "knowledge" / "CITATIONS.md").read_text()
+    citations = (tmp_path / "knowledge" / "CITATIONS.md").read_text(encoding="utf-8")
     assert "## ley-1437 (Ley 1437 de 2011)" in citations
     assert "Cited by:\n- decreto-1082 (pages 1)" in citations
     # Incremental: a second run converts nothing, and a deleted source takes its Markdown with it.

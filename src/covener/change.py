@@ -103,7 +103,7 @@ def _uncommitted(root: Path, change: Change) -> list[str]:
             ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=root,
             capture_output=True,
-            text=True,
+            encoding="utf-8",  # git speaks utf-8; the platform locale (cp1252 on Windows) does not
             check=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:

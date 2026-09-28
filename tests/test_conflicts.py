@@ -36,7 +36,7 @@ def test_content_shaped_like_covener_is_adopted_without_asking(tmp_path: Path) -
     write(tmp_path, "skills/house-style/SKILL.md", "---\nname: house-style\ndescription: ours\n---\nOurs.\n")
     assert preflight(tmp_path, config.Config()) == []
     report = initialize(tmp_path, tools=["claude"])
-    assert (tmp_path / "agents" / "reviewer.md").read_text().endswith("Our reviewer.\n")
+    assert (tmp_path / "agents" / "reviewer.md").read_text(encoding="utf-8").endswith("Our reviewer.\n")
     assert "agents/reviewer.md" in report.kept
     assert (tmp_path / ".claude" / "skills" / "house-style" / "SKILL.md").is_file()
 
@@ -46,8 +46,8 @@ def test_tool_files_and_a_second_init_never_block(tmp_path: Path) -> None:
     write(tmp_path, ".cursor/rules/style.mdc", "---\nalwaysApply: true\n---\nStyle.\n")
     write(tmp_path, "AGENTS.md", "# Ours\n\nUse pnpm.\n")
     initialize(tmp_path, tools=["claude", "cursor"])
-    assert (tmp_path / ".claude" / "agents" / "mine.md").read_text().endswith("Mine.\n")
-    assert (tmp_path / "AGENTS.md").read_text().startswith("# Ours\n\nUse pnpm.\n")
+    assert (tmp_path / ".claude" / "agents" / "mine.md").read_text(encoding="utf-8").endswith("Mine.\n")
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8").startswith("# Ours\n\nUse pnpm.\n")
     # An initialised repository is ours: files added later never trigger the check again.
     write(tmp_path, "specs/openapi.yaml", "openapi: 3.1.0\n")
     report = initialize(tmp_path, tools=["claude"])

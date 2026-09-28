@@ -35,7 +35,7 @@ def test_start_scaffolds_the_change_and_takes_the_item(repo: Path) -> None:
     spec(repo, "billing/refunds")
     report = change_module.start(repo, cfg(repo), "refund-flow", specs=["billing/refunds"])
     assert report.created == ["changes/refund-flow/tasks.md"]  # the design and the record come later
-    text = (repo / "changes" / "refund-flow" / "tasks.md").read_text()
+    text = (repo / "changes" / "refund-flow" / "tasks.md").read_text(encoding="utf-8")
     assert text.startswith("---\nstatus: draft\nitems:\n  - spec: billing/refunds\n---\n")
     # The item is taken: it leaves the backlog, so no other agent picks it up.
     _, report_, snapshot = compute(repo, cfg(repo))
@@ -279,8 +279,8 @@ def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.Capt
     assert report_.moved == ["changes/account-closure -> changes/archive/2026-09-21-account-closure"]
     archived = repo / "changes" / "archive" / "2026-09-21-account-closure"
     assert (archived / "design.md").is_file() and (archived / "implementation.md").is_file()
-    assert "status: done" in (repo / "specs" / "privacy" / "account-closure.md").read_text()
-    assert "status: done" in (repo / "tasks" / "upgrade-deps.md").read_text()
+    assert "status: done" in (repo / "specs" / "privacy" / "account-closure.md").read_text(encoding="utf-8")
+    assert "status: done" in (repo / "tasks" / "upgrade-deps.md").read_text(encoding="utf-8")
 
     _, report, snapshot = compute(repo, cfg(repo))
     assert report.errors == [] and snapshot.changes == [] and snapshot.specs["done"] == 1

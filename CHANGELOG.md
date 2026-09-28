@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.3] - 2026-09-29
+
+Windows CI caught 0.10.2's release commit: a test rewrote an agent prompt without naming an
+encoding, so it was written back as cp1252, and the em dash 0.10.2 added to the reviewer's prompt
+made the next utf-8 read blow up. The published package was never affected; only the suite was red.
+
+### Fixed
+- Every file the tests read or write names utf-8 explicitly, and the suite now runs under
+  `PYTHONWARNDEFAULTENCODING=1` with `EncodingWarning` as an error in CI, so any file I/O that
+  relies on the platform locale fails the build before it can fail only on Windows.
+- `covener change archive` decodes `git status` output as utf-8 instead of the platform locale, so
+  a non-ASCII path in an uncommitted file cannot confuse the uncommitted check on Windows.
+
 ## [0.10.2] - 2026-09-29
 
 Three hundred minutes on two bugs. A skill rule written as an absolute turned every QA round into a

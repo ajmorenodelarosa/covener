@@ -52,7 +52,7 @@ def test_skills_are_linked_where_each_harness_reads_them(repo: Path) -> None:
     assert not (repo / ".cursor" / "skills").exists()  # Cursor reads .agents/skills natively
     # One copy to edit: the change is visible through every link. A new skill is linked on the next run.
     write(repo, "skills/frontend/SKILL.md", "---\nname: frontend\ndescription: ours\n---\nUse tokens.\n")
-    assert "Use tokens." in (repo / ".claude" / "skills" / "frontend" / "SKILL.md").read_text()
+    assert "Use tokens." in (repo / ".claude" / "skills" / "frontend" / "SKILL.md").read_text(encoding="utf-8")
     write(repo, "skills/api-design/SKILL.md", "---\nname: api-design\ndescription: ours\n---\nREST.\n")
     report = initialize(repo)
     assert ".agents/skills/api-design" in report.created
