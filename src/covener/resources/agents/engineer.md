@@ -57,7 +57,10 @@ record the next session needs.
 3. Plan next, in `tasks.md`: one checkbox per step in the order you will do them, each naming the
    acceptance criterion, expected behaviour or done-when it serves (for a bug, the regression test
    comes first). Every criterion has its steps, in every layer; the plan is as long as the item
-   needs. Then stop again: no code until `tasks.md` is `status: approved`, by the human or,
+   needs. For a bug it is also as short: the smallest diff that delivers the expected behaviour,
+   regression test first. The refactor the fix suggests — migrating callers, a stricter signature
+   everywhere, a new lint rule — is not this change's work: propose it in your recap as a
+   `tasks/<id>.md` item. Then stop again: no code until `tasks.md` is `status: approved`, by the human or,
    when `approvals: {tasks: reviewer}` is set, by the Reviewer. The plan is yours to write; the
    planner only chose the item.
 4. Implement, once the tasks are approved: create `implementation.md` from the template and work
@@ -92,7 +95,9 @@ record the next session needs.
 8. Rework: the human asks for changes in the conversation or adds tasks under `## Rework` in
    `tasks.md`. Add the ones they asked for in the conversation, do them all, tick them, record a
    `## Rework` entry in `implementation.md` saying what changed, and commit. The change is back in
-   review once nothing is open.
+   review once nothing is open. Rework holds only what the failing verdict or the human names:
+   anything else anyone would like improved — including you — is a follow-up in your recap, never a
+   rework task.
 
 ## Boundaries
 - Keep changes to what the items need; other improvements go in your recap as follow-ups.

@@ -227,7 +227,10 @@ approvals:
 No one approves anything and nothing pretends otherwise. Once a change is in review and committed,
 the engineer runs `covener change archive`, which closes it only when every task is ticked, the
 design and the plan are approved, the latest QA and review verdicts pass and nothing is
-uncommitted. `implementation.md` stays `status: review` and gains `approval: off`; `status` lists
+uncommitted. A verdict judges the change, not the codebase: a defect that predates the change
+becomes a bug in the backlog, not a blocked round, so a change closes on its own criteria instead
+of paying for every defect its verification happens to uncover.
+`implementation.md` stays `status: review` and gains `approval: off`; `status` lists
 the item under Done as *closed without approval*, and `status --strict` re-checks the rule from the
 archived files themselves, whatever the configuration says later. Each change is archived as it
 passes, so nothing stacks waiting for you. The verdicts are written by agents, so a change closed
@@ -385,7 +388,9 @@ from outside, hostile input against what the diff touches, and a mode the engine
 production build rather than the dev server, another time zone, another browser. The reviewer reads
 and repeats neither. CI runs the suite again regardless. Three agents over the same suite is the
 same evidence three times, not independence, and what a diff does not touch is out of scope however
-routine the check is.
+routine the check is. QA samples equivalence classes rather than enumerating matrices — the worst
+time zone, one page per template, the newest build — and a verdict judges the change, not the
+codebase: what predates it becomes a bug, not a `fail`.
 
 **What a lead sees.** `covener status` across the repository: every open change, its state, task
 progress and the QA and reviewer verdicts, what is waiting for a human, what is inconsistent. A
@@ -424,6 +429,11 @@ flow stays the same.
 | Bug worth tracking | "This is the problem." Product registers `bugs/<id>.md` (symptom, reproduction, cause if known, expected behaviour, affected spec), `open` from the start: a bug is reported, not approved. It goes to the top of the backlog until someone starts a change for it. |
 | Hotfix | The same, without waiting: `covener change start fix-token-refresh --bug token-refresh` right now. The cycle runs in an hour instead of a week, and nothing else has to pause, because there is no sprint to interrupt. |
 | Technical work | "Move the KYC archive to an EU region." You or the planner register `tasks/<id>.md` with goal, why, scope, done-when, risk and rollback. Same cycle. If the work leaves a durable requirement ("customer data never leaves the EU"), it is a spec instead. |
+
+A fix stays a fix. The refactor it suggests becomes a task, the defects it uncovers become new
+bugs, and the change closes on its own criteria: what predates it never blocks it. A skill rule
+binds the code a change touches, not the codebase retroactively — otherwise the first absolute rule
+in a skill turns every change into a platform audit that can never close.
 
 Bugs and tasks never touch a spec. If a bug reveals the spec was wrong, or a task changes what the
 product promises, that is a separate edit to the spec.

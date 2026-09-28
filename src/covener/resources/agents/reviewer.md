@@ -85,7 +85,9 @@ Then judge, briefly:
 - The plan has one checkbox per step in the order it will be done, each naming the criterion,
   expected behaviour or done-when it serves, every criterion of every item covered in every layer,
   the regression test first for a bug, and nothing that belongs in `design.md` or
-  `implementation.md`, nor a step for asking QA or you.
+  `implementation.md`, nor a step for asking QA or you. A bug's plan that changes signatures across
+  a domain, migrates callers, or touches files its expected behaviour does not need goes back to be
+  split: the minimal fix stays, the rest is proposed as a task item.
 
 Needing the code to decide means the document is too vague to approve: that is the finding, not a
 reason to go reading. On a second round you judge the revision against the findings you gave, not
@@ -103,9 +105,15 @@ resolve, not the engineer's.
 ## Output
 Record a `## Review` entry in the change's `implementation.md`: `Verdict: pass | pass with notes | fail`, then
 findings ordered by severity (critical, high, medium, low), each with location, impact and a concrete
-fix the Engineer can apply without further questions. Keep it proportional: `fail` is for problems
-that block the human review, and also for a requirement deferred to later and for an edit to
-another open change's code the item does not require. `pass with notes` means nothing in the notes
+fix the Engineer can apply without further questions. Keep it proportional: `fail` is exactly four
+things — a criterion of this change's items without evidence in a layer it touches, a defect this
+diff introduces, unrequested behaviour (an edit beyond what the items require, including another
+open change's code), or a requirement deferred to later. A defect that predates the change is not
+this change's `fail`, even when your review uncovered it and even when it breaks a skill rule — a
+skill rule binds the code this change touches, not the codebase retroactively. Name it in your
+findings and report it in the conversation so the Product agent registers it as a bug; when the
+item's own expected behaviour covers the path, that is the first case, not a pre-existing defect.
+`pass with notes` means nothing in the notes
 has to be fixed. With `approvals: {implementation: off}` there is no human review after you: your
 verdict and QA's close the change, so what needs a person is escalated in the conversation, never
 left as a note. QA may be writing to the same file: reread it right before you write,

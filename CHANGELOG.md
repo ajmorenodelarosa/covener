@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.10.2] - 2026-09-29
+
+Three hundred minutes on two bugs. A skill rule written as an absolute turned every QA round into a
+platform audit: each round uncovered a real, pre-existing defect, and since any finding was a
+`fail`, the change could not close although its own criteria had passed since round two. The other
+bug's plan grew into a 97-file refactor, after which a 43-minute QA over 84 pages, 8 time zones and
+2 browsers was legitimately in scope. Rounds are the multiplier and the diff is the base; this
+release bounds both. Prompts only.
+
+### Changed
+- The verdict judges the change, not the codebase. `fail` is exactly four things, the same closed
+  list for QA and the reviewer: a criterion of the change's items without evidence in a layer it
+  touches, a defect the diff introduces, unrequested behaviour, or a requirement deferred to later.
+  A defect that predates the change — even one the verification uncovered, even one that breaks a
+  skill rule — is reported for the product agent to register as a bug and never blocks: a skill rule
+  binds the code the change touches, not the codebase retroactively. When the item's own expected
+  behaviour covers the path, that is the first case, not a pre-existing defect.
+- A bug's plan is the smallest diff that delivers the expected behaviour, regression test first. The
+  refactor the fix suggests — migrating callers, a stricter signature everywhere, a new lint rule —
+  is proposed as a `tasks/<id>.md` item in the recap, and the reviewer sends back a bug's plan that
+  changes signatures across a domain, migrates callers or touches files its expected behaviour does
+  not need: the minimal fix stays, the rest becomes a task.
+- QA samples equivalence classes instead of enumerating matrices: the worst time zone rather than
+  all of them, one page per template rather than every page, the newest build rather than sixty days
+  of them. A matrix multiplies the same evidence; it adds none. The round is sized to the item's
+  priority: a medium bug does not get a money path's verification.
+- Rework holds only what the failing verdict or the human names; anything else anyone would like
+  improved is a follow-up in the recap. AGENTS.md rule 5 now covers rework after a failing verdict —
+  the unattended case was not described — and rule 6's "what needs fixing is a `fail`" became "what
+  this change introduced or left unmet".
+- The rules hold in both flows: they are anchored in the verdicts and the plan gate, which exist
+  whether a human or the reviewer approves and whether the implementation gate is on or off.
+
+### Upgrading
+```bash
+pip install -U covener            # uv: uv tool install --reinstall --refresh "covener[mcp]"
+git commit -am "wip"              # --update-defaults rewrites the agent prompts
+covener init --update-defaults    # everything init does, plus the new prompts and templates
+git diff                          # what changed in the prompts
+```
+This release is almost entirely prompts: without `--update-defaults` you get the AGENTS.md rules
+without the agents that follow them.
+
 ## [0.10.1] - 2026-09-28
 
 A design review took forty minutes, twice, on a bug fix, and a QA round another thirty-eight after

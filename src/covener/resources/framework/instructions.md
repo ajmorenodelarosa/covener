@@ -62,7 +62,8 @@ Rules for every agent:
 5. When every task is ticked and QA and the reviewer pass, set `implementation.md` to
    `status: review`, commit the change (code, tests and its three files, one commit named after
    the change) and tell the human what to evaluate. Rework the human asks for goes into
-   `tasks.md` as tasks under `## Rework`; the change is back in review, with a new commit, once
+   `tasks.md` as tasks under `## Rework`; rework after a failing verdict works the same way and
+   holds only what the verdict names; the change is back in review, with a new commit, once
    they are ticked. Nothing waits for review uncommitted: the reviewer reads the commit's diff,
    and a `git checkout` must not be able to lose a day's work.
 6. After the human sets `implementation.md` to `status: approved`, close the change with
@@ -73,8 +74,9 @@ Rules for every agent:
    the change only when every task is ticked, the design and the plan are approved, the latest QA
    and review verdicts pass and nothing is uncommitted, and it leaves `status: review` with
    `approval: off` in `implementation.md`, so the record never claims an approval that did not
-   happen. With the gate off, a verdict is what closes the change: what needs fixing is a `fail`,
-   and what needs a person is escalated, never left as a note.
+   happen. With the gate off, a verdict is what closes the change: what this change introduced or
+   left unmet is a `fail`, what predates it is registered as a bug and never blocks, and what needs
+   a person is escalated, never left as a note.
 7. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
 8. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
