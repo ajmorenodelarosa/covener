@@ -35,7 +35,7 @@ Claude Code, Cursor or any tool that reads `AGENTS.md` into a development team y
 - **Approval is a rule that code enforces.** `covener change archive <name>` refuses unless you set
   `implementation.md` to `approved`, and while a task is open; then it marks the items done and
   files the change under `changes/archive/`. `covener status --strict` fails CI on that rule and
-  every consistency rule.
+  every consistency rule. A prototype can turn that gate off; the archive then says so.
 - **The backlog is derived, never written.** Approved specs, open bugs and open tasks that are not in
   an open change, bugs first, then by priority. Nothing to maintain, nothing for a team to collide on.
 - **Skills carry your conventions.** `skills/<name>/SKILL.md` in the Agent Skills open standard,
@@ -166,7 +166,7 @@ file itself, the way you approve a spec.
 |---|---|---|---|
 | `design.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: edit it, ask for changes, set it `approved`. Optional: a change too small for a design has none. |
 | `tasks.md` | engineer | `draft`, `approved` | you, or the reviewer if you delegate it: one checkbox per step, each naming the criterion it serves. |
-| `implementation.md` | agents only | `in-progress`, `review`, `approved` | always you, once the engineer has set it to `review`. |
+| `implementation.md` | agents only | `in-progress`, `review`, `approved` | you, once the engineer has set it to `review`; or no one, if you turn the gate off. |
 
 Feedback goes in the conversation and ends up in the file: the engineer revises `design.md` until
 you approve it, and rework after review is a task you add, or ask for, under `## Rework` in
@@ -191,7 +191,7 @@ you in it is sent back, not escalated: the engineer decides, writes the decision
 under `## Decisions` when you approve the implementation. It escalates to you only when the
 architecture skill is still the template, after two rounds without agreement, or when the item
 itself contradicts another item. Anything absent from `approvals:` is
-yours, and the implementation always is: `covener status` counts only your gates as pending, and
+yours: `covener status` counts only your gates as pending, and
 `status --strict` fails on a design or plan the reviewer signed on a gate you did not delegate, or
 on a delegated gate approved with no `approved-by`. The signature is a line in the file, so the
 archive says which changes a person read before code and which ones the reviewer did.
@@ -202,6 +202,27 @@ review, and as soon as it is in review the planner opens the next one. The run s
 reviewer escalates, when QA or the reviewer fail the same change twice, or when the backlog is
 empty; you come back to a list of implementations to approve. Fill in `skills/architecture` first,
 or the reviewer escalates the first design.
+
+**Turning the implementation gate off.** QA and the reviewer have already read the implementation
+by the time it reaches you, so there is no agent to hand the last gate to: it is yours, or it is
+off. Off is for a prototype built in one go, or a project where you would rather read the archive
+afterwards than each change before it closes:
+
+```yaml
+approvals:
+  design: reviewer
+  tasks: reviewer
+  implementation: off   # human (default) or off
+```
+
+No one approves anything and nothing pretends otherwise. Once a change is in review and committed,
+the engineer runs `covener change archive`, which closes it only when every task is ticked, the
+design and the plan are approved, the latest QA and review verdicts pass and nothing is
+uncommitted. `implementation.md` stays `status: review` and gains `approval: off`; `status` lists
+the item under Done as *closed without approval*, and `status --strict` re-checks the rule from the
+archived files themselves, whatever the configuration says later. Each change is archived as it
+passes, so nothing stacks waiting for you. The verdicts are written by agents, so a change closed
+this way is as trustworthy as QA and the reviewer; in a regulated product, keep this gate yours.
 
 **Where architecture lives.** `design.md` describes one change and is archived with it. What every
 change must respect, the shape of the system, its boundaries, the patterns it uses and the decisions
@@ -316,7 +337,8 @@ design, or an implementation started over draft tasks; an item in two open chang
 an unknown id in a change; a change with no `tasks.md`; invalid statuses or unparsable files; a
 change in `review` whose latest QA or review verdict is `fail`, so you are never asked to approve
 work an agent failed; a design or plan signed by the reviewer on a gate you did not delegate, or a
-delegated gate approved with no signature; a missing vision; a configured agent without a definition; a skill that
+delegated gate approved with no signature; an archived change closed with `approval: off` whose own
+files do not meet the closing rule; a missing vision; a configured agent without a definition; a skill that
 breaks the standard (its `name` not matching its folder, or no description). Archived changes are
 history: only the approval rules apply to them, so a spec that later changes never breaks CI.
 

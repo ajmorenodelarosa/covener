@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -112,6 +114,69 @@ def test_a_gate_delegated_to_the_reviewer_is_signed_and_is_not_yours(repo: Path)
     change(repo, "account-closure", tasks="draft", **signed)
     flagged = {issue.path for issue in compute(repo, cfg(repo))[1].errors}
     assert flagged == {"changes/account-closure/design.md"}
+
+
+def _git(root: Path, *args: str) -> None:
+    identity = ["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", *identity, *args], cwd=root, check=True, capture_output=True)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def test_with_the_implementation_gate_off_the_rule_closes_the_change(repo: Path) -> None:
+    """No one approves: QA and the reviewer passed, the change is committed, and the record says so."""
+    (repo / ".git").rmdir()
+    _git(repo, "init", "-q")
+    closing = cfg(repo)
+    closing.approvals["implementation"] = "off"
+    write(repo, ".covener/config.yaml", closing.render())
+    spec(repo, "privacy/account-closure")
+    items = ["spec: privacy/account-closure"]
+    ticked = "## Tasks\n- [x] a (AC1)\n"
+
+    def build(entries: str) -> None:
+        change(
+            repo,
+            "account-closure",
+            items=items,
+            body=ticked,
+            design="approved",
+            implementation="review",
+            entries=entries,
+        )
+
+    # A failing verdict never closes; passing verdicts make the next step the agents', not yours.
+    build("## Summary\nBuilt.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: fail\n- high: x\n")
+    with pytest.raises(change_module.ChangeError, match="latest review verdict is 'fail'"):
+        change_module.archive(repo, cfg(repo), "account-closure")
+    build("## Summary\nBuilt.\n\n## QA\nVerdict: pass\n\n## Review\nVerdict: pass with notes\n- low: y\n")
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert snapshot.changes[0]["state"] == "in_review" and snapshot.pending_human_review == 0
+    assert any(a.startswith("Agents: close change account-closure") for a in report.actions)
+
+    # Nothing closes uncommitted: with no approval, the commit is what the record points at.
+    with pytest.raises(change_module.ChangeError, match="uncommitted"):
+        change_module.archive(repo, cfg(repo), "account-closure")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "account-closure")
+    (repo / "notes.txt").write_text("untracked and unrelated\n", encoding="utf-8")  # does not block
+    closed = change_module.archive(repo, cfg(repo), "account-closure", when="2026-09-28")
+    assert "changes/account-closure/implementation.md (approval: off)" in closed.updated
+    path = repo / "changes/archive/2026-09-28-account-closure/implementation.md"
+    record = path.read_text(encoding="utf-8")
+    assert record.startswith("---\nstatus: review\napproval: off\n")
+    _, report, snapshot = compute(repo, cfg(repo))
+    assert report.errors == [] and snapshot.done[0]["approval"] == "off"
+    line = "  - spec privacy/account-closure (2026-09-28-account-closure 2026-09-28, closed without approval)"
+    assert line in render_text(snapshot).splitlines()
+
+    # The rule is re-checked from the archive itself, whatever the configuration says later.
+    write(repo, ".covener/config.yaml", config.Config().render())
+    assert errors(repo) == set()
+    path.write_text(record.replace("Verdict: pass with notes", "Verdict: fail"), encoding="utf-8")
+    assert errors(repo) == {"change.closed-without-the-rule"}
+    # And `approval: off` is only ever written by the archive, on a change in review.
+    path.write_text(record.replace("status: review", "status: approved"), encoding="utf-8")
+    assert "change.invalid-approval" in errors(repo)
 
 
 def test_the_whole_cycle_from_backlog_to_archive(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:

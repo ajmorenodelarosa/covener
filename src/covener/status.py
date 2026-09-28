@@ -27,7 +27,7 @@ class StatusSnapshot:
     backlog: list[dict[str, Any]]  # kind, id, domain, priority
     # open changes: name, state, items, tasks, design, implementation, verdicts, approvers (who signed a gate)
     changes: list[dict[str, Any]]
-    done: list[dict[str, str]]  # kind, id, change, closed
+    done: list[dict[str, str]]  # kind, id, change, closed, approval ("human", or "off" when no one approved it)
     pending_human_review: int
     pending_spec_approval: int
     errors: int
@@ -95,7 +95,7 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
         awaiting += (
             (change.state == "awaiting_design" and approvals["design"] == "human")
             or (change.state == "awaiting_tasks" and approvals["tasks"] == "human")
-            or (change.state == "in_review" and not failing)
+            or (change.state == "in_review" and not failing and approvals["implementation"] == "human")
         )
         changes.append(
             {
@@ -113,14 +113,15 @@ def build_snapshot(repo: Repository, report: Report, domain: str | None = None) 
     done: list[dict[str, str]] = []
     for item in repo.items:
         if item.status == "done" and keep(item.key):
-            approving = [c for c in repo.changes_of(item.key) if c.approved]
-            last = approving[-1] if approving else None
+            closing = [c for c in repo.changes_of(item.key) if c.completed]
+            last = closing[-1] if closing else None
             done.append(
                 {
                     "kind": item.kind,
                     "id": item.id,
                     "change": last.name if last else "",
                     "closed": last.closed if last else "",
+                    "approval": "off" if last and last.closed_without_approval else "human",
                 }
             )
 
@@ -199,6 +200,8 @@ def render_text(snapshot: StatusSnapshot, verbose: bool = False) -> str:
         for entry in snapshot.done:
             when = f" {entry['closed']}" if entry["closed"] else ""
             where = f"{entry['change']}{when}" if entry["change"] else "no approving change"
+            if entry["approval"] == "off":
+                where += ", closed without approval"
             lines.append(f"  - {entry['kind']} {entry['id']} ({where})")
     lines += ["", "Governance"]
     lines.append(f"  Pending human review: {snapshot.pending_human_review}")

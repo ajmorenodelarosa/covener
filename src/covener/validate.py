@@ -138,11 +138,12 @@ def _check_items(repo: Repository, report: Report) -> None:
                 item.path,
                 "listed in more than one open change: " + ", ".join(c.name for c in open_changes),
             )
-        if item.status == "done" and not any(c.approved for c in repo.changes_of(item.key)):
+        if item.status == "done" and not any(c.completed for c in repo.changes_of(item.key)):
             report.error(
                 f"{item.kind}.done-without-approval",
                 item.path,
-                f"{item.kind} is 'done' but no change has an approved implementation for it",
+                f"{item.kind} is 'done' but no change has an approved implementation for it, "
+                "or closed it with the implementation gate off",
             )
         if item.ready and not open_changes and item.kind == "bug":
             report.act(f"Start a change for bug {item.id}: covener change start <name> --bug {item.id}", item.key)
@@ -216,16 +217,53 @@ def _gate_action(change: Change, config: Config, gate: str, report: Report) -> N
         report.act(f"Review the {what} of change {change.name}: set status: approved in {where}", *change.items)
 
 
+def _check_approval_key(change: Change, report: Report) -> bool:
+    """``approval: off`` is written by ``change archive`` on a change in review, and nowhere else."""
+    if not change.approval:
+        return True
+    where = change.implementation_file
+    if change.approval != "off":
+        report.error("change.invalid-approval", where, f"approval {change.approval!r} can only be 'off'")
+        return False
+    if change.implementation != "review":
+        report.error(
+            "change.invalid-approval",
+            where,
+            f"approval: off marks a change closed with no approval, but status is {change.implementation!r}",
+        )
+        return False
+    if not change.archived:
+        report.error(
+            "change.invalid-approval",
+            where,
+            "approval: off is written by `covener change archive` when it closes the change; remove it",
+        )
+        return False
+    return True
+
+
 def _check_changes(repo: Repository, report: Report) -> None:
     config = repo.config
     for change in repo.changes:
         if not _check_change_statuses(change, report):
+            continue
+        if not _check_approval_key(change, report):
             continue
         _check_approvers(change, config, report)
         if not change.items:
             report.warning("change.no-items", change.tasks_file, "change lists no spec, bug or task")
         if change.archived:
             # History: only the approval rules apply; items may have moved on since.
+            if change.closed_without_approval:
+                # Closed with the gate off: the rule is re-checked from the change's own files.
+                problems = change.closing_rule_problems()
+                if problems:
+                    report.error(
+                        "change.closed-without-the-rule",
+                        change.implementation_file,
+                        "closed with approval: off but " + "; ".join(problems),
+                    )
+                    continue
             drafts = [
                 (where, status)
                 for where, status in (
@@ -233,7 +271,9 @@ def _check_changes(repo: Repository, report: Report) -> None:
                     (change.tasks_file, change.tasks),
                     (change.design_file, change.design),
                 )
-                if status != "approved" and (status is not None or where == change.implementation_file)
+                if status != "approved"
+                and (status is not None or where == change.implementation_file)
+                and not (where == change.implementation_file and change.closed_without_approval)
             ]
             if drafts:
                 where, status = drafts[0]
@@ -250,7 +290,7 @@ def _check_changes(repo: Repository, report: Report) -> None:
                     report.warning(
                         f"{key[0]}.not-done",
                         item.path,
-                        f"implementation approved in change {change.name} but status is {item.status!r}",
+                        f"change {change.name} closed it but status is {item.status!r}",
                     )
             continue
         for key in change.items:
@@ -309,6 +349,12 @@ def _check_changes(repo: Repository, report: Report) -> None:
             _gate_action(change, config, "design", report)
         elif state == "awaiting_tasks":
             _gate_action(change, config, "tasks", report)
+        elif state == "in_review" and not failing and config.approvals["implementation"] == "off":
+            report.act(
+                f"Agents: close change {change.name} with `covener change archive {change.name}` "
+                "(the implementation gate is off), then commit the archive",
+                *change.items,
+            )
         elif state == "in_review" and not failing:
             report.act(
                 f"Review the implementation of change {change.name}: set status: approved in "

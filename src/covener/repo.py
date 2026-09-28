@@ -38,6 +38,8 @@ RESERVED_NAMES: frozenset[str] = frozenset({"vision", "template", "readme"})
 IGNORED_AGENT_FILES: frozenset[str] = frozenset({"README.MD", "TEMPLATE.MD"})
 ARCHIVE_DIR = "archive"
 APPROVED_BY_KEY = "approved-by"  # who set `status: approved` on design.md or tasks.md when the gate is delegated
+APPROVAL_KEY = "approval"  # `approval: off` in implementation.md: closed by the rule, approved by no one
+PASSING_VERDICTS: frozenset[str] = frozenset({"pass", "pass with notes"})
 TASKS_FILE = "tasks.md"
 DESIGN_FILE = "design.md"
 IMPLEMENTATION_FILE = "implementation.md"
@@ -199,6 +201,7 @@ class Change:
     design: str | None = None  # status of design.md, None when the change has none
     design_approver: str = ""  # `approved-by` of design.md
     implementation: str | None = None  # status of implementation.md, None until the work starts
+    approval: str = ""  # `approval` of implementation.md: "off" when the change was closed with no approval
     checklist: tuple[int, int] = (0, 0)  # (ticked, total) tasks in tasks.md
     entries: list[Entry] = field(default_factory=list)  # ## sections of implementation.md
     meta: dict[str, Any] = field(default_factory=dict)  # front matter of tasks.md
@@ -229,8 +232,38 @@ class Change:
 
     @property
     def approved(self) -> bool:
-        """The human approved the implementation: the only approval that closes a change."""
+        """The human approved the implementation."""
         return self.implementation == "approved"
+
+    @property
+    def closed_without_approval(self) -> bool:
+        """Closed by the rule while the implementation gate was off: in review, ``approval: off``."""
+        return self.implementation == "review" and self.approval == "off"
+
+    @property
+    def completed(self) -> bool:
+        """The change may close its items: approved by the human, or closed by the rule with the gate off."""
+        return self.approved or self.closed_without_approval
+
+    def closing_rule_problems(self) -> list[str]:
+        """What stops the change from closing with no approval; empty when the rule holds.
+
+        Everything here is read from the change's own files, so an archived change can be re-checked
+        at any time, whatever the configuration says today.
+        """
+        problems: list[str] = []
+        if self.implementation != "review":
+            problems.append(f"{IMPLEMENTATION_FILE} is {self.implementation or 'missing'!r}, not 'review'")
+        for filename, status in ((DESIGN_FILE, self.design), (TASKS_FILE, self.tasks)):
+            if status is not None and status != "approved":
+                problems.append(f"{filename} is {status!r}, not 'approved'")
+        if self.open_tasks:
+            problems.append(f"{self.open_tasks} task(s) still open in {TASKS_FILE}")
+        for role, label in (("qa", "QA"), ("review", "review")):
+            verdict = self.verdicts.get(role)
+            if verdict not in PASSING_VERDICTS:
+                problems.append(f"the latest {label} verdict is {verdict or 'missing'!r}, not a pass")
+        return problems
 
     @property
     def approvers(self) -> dict[str, str]:
@@ -522,6 +555,8 @@ def load_changes(root: Path, config: Config, problems: list[ParseProblem]) -> li
         if implementation is not None:
             change.implementation = implementation[1]
             change.entries = parse_entries(implementation[0].body)
+            approval = implementation[0].meta.get(APPROVAL_KEY)
+            change.approval = "off" if approval is False else _as_str(approval).lower()  # YAML reads off as false
         changes.append(change)
     changes.sort(key=lambda c: (c.archived, c.name))
     return changes

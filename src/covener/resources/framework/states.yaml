@@ -29,7 +29,7 @@ change:                     # changes/<name>/: the unit of work. A folder, no st
       human_gated: [[draft, approved]]   # or the reviewer, when config.yaml says `approvals: {tasks: reviewer}`
     implementation.md:      # what happened; the agents write it, the human approves the result
       states: [in-progress, review, approved]
-      human_gated: [[review, approved]]
+      human_gated: [[review, approved]]   # unless config.yaml says `approvals: {implementation: off}`: then no one approves it
   states: [not_started, awaiting_design, awaiting_tasks, in_progress, in_review, approved, done]   # derived
   rule: >-
     design.md draft -> awaiting_design; tasks.md draft -> not_started (no task) or awaiting_tasks;
@@ -39,7 +39,8 @@ change:                     # changes/<name>/: the unit of work. A folder, no st
     - a change takes approved specs, open bugs and open tasks
     - an item is in at most one open change
     - agents never set `status: approved` on any file; the human does, in the file, after asking for changes in the conversation
-    - "exception: `approvals:` in .covener/config.yaml may delegate the design.md gate, the tasks.md gate or both to the reviewer, who then approves with `status: approved` and `approved-by: reviewer`, or asks the engineer for changes; implementation.md is always the human's"
+    - "exception: `approvals:` in .covener/config.yaml may delegate the design.md gate, the tasks.md gate or both to the reviewer, who then approves with `status: approved` and `approved-by: reviewer`, or asks the engineer for changes; implementation.md is never the reviewer's"
+    - "`approvals: {implementation: off}` removes the implementation gate: `covener change archive` closes a change in review when every task is ticked, design and tasks are approved, the latest QA and review verdicts pass and nothing is uncommitted, and writes `approval: off` next to `status: review`; the archive says no one approved it"
     - design before tasks, tasks before code; a change too small for a design has no design.md
     - rework the human asks for is added as tasks under `## Rework` in tasks.md and reopens the change until they are ticked
-    - "`covener change archive <name>` refuses unless implementation.md is approved and every task is ticked, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"
+    - "`covener change archive <name>` refuses unless implementation.md is approved (or closes by the rule above with the gate off) and every task is ticked, then marks the items done and moves the change to changes/archive/YYYY-MM-DD-<name>/"

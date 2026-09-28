@@ -6,4 +6,6 @@ status: in-progress
 here, only the final `status: approved`. Entries in chronological order: `## Summary` (what, where, how verified), `## Decisions`, `## QA`
 and `## Review` with `Verdict: pass | pass with notes | fail`, `## Rework` after a review. The
 engineer sets `status: review` when every task is ticked and QA and the reviewer pass; the human
-sets `status: approved`, and `covener change archive` refuses without it. -->
+sets `status: approved`, and `covener change archive` refuses without it. With
+`approvals: {implementation: off}` no one approves it: `covener change archive` closes the change
+from `review` once the rule holds and writes `approval: off` here. -->

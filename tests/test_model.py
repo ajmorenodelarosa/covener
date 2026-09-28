@@ -41,10 +41,10 @@ def test_config_maps_the_roles_and_refuses_nonsense(tmp_path: Path) -> None:
         "engineer": "engineer",
         "reviewer": "reviewer",
     }
-    # Gates are yours unless delegated to the reviewer; the implementation is never a gate you can delegate.
-    assert cfg.approvals == {"design": "human", "tasks": "human"}
-    delegated = config.from_dict({"approvals": {"tasks": "Reviewer"}})
-    assert delegated.approvals == {"design": "human", "tasks": "reviewer"}
+    # Design and tasks are yours or the reviewer's; the implementation is yours or has no gate at all.
+    assert cfg.approvals == {"design": "human", "tasks": "human", "implementation": "human"}
+    delegated = config.from_dict({"approvals": {"tasks": "Reviewer", "implementation": False}})  # YAML `off`
+    assert delegated.approvals == {"design": "human", "tasks": "reviewer", "implementation": "off"}
     assert "approvals:" in cfg.render() and config.load(tmp_path).approvals == cfg.approvals
     for data, message in (
         ({"version": 2}, "unsupported config version"),
@@ -52,7 +52,8 @@ def test_config_maps_the_roles_and_refuses_nonsense(tmp_path: Path) -> None:
         ({"agents": {"qa": "QA-"}}, "lowercase"),  # the harnesses require it
         ({"tools": "claude"}, "list of strings"),
         ({"workflow": {}}, "unknown configuration key"),
-        ({"approvals": {"implementation": "reviewer"}}, "unknown approval gate"),
+        ({"approvals": {"spec": "reviewer"}}, "unknown approval gate"),
+        ({"approvals": {"implementation": "reviewer"}}, "must be one of human, off"),
         ({"approvals": {"design": "engineer"}}, "must be one of human, reviewer"),
         ({"approvals": {"design": "off"}}, "must be one of human, reviewer"),
         ({"agents": {"reviewer": "off"}, "approvals": {"design": "reviewer"}}, "reviewer role is off"),

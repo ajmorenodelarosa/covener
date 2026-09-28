@@ -45,7 +45,13 @@ def test_status_reports_the_backlog_the_changes_and_what_is_next(populated: Path
     assert snapshot.changes[0]["items"] == ["spec privacy/account-closure"]
     assert snapshot.changes[0]["design"] == "approved" and snapshot.changes[1]["design"] is None
     assert snapshot.done == [
-        {"kind": "spec", "id": "aml/audit-trail", "change": "2026-09-10-audit-trail", "closed": "2026-09-10"}
+        {
+            "kind": "spec",
+            "id": "aml/audit-trail",
+            "change": "2026-09-10-audit-trail",
+            "closed": "2026-09-10",
+            "approval": "human",
+        }
     ]
     assert snapshot.pending_human_review == 1 and snapshot.pending_spec_approval == 1
     for action in (

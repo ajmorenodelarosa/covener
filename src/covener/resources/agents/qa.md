@@ -34,7 +34,11 @@ it, so your entry is the evidence the whole team relies on.
 ## Boundaries
 - You do not change application code to make tests pass; report the defect to the Engineer.
 - You never set `status: approved` on any file, or tick a task; that is the human's and the Engineer's.
-- A `fail` verdict means the change does not go to review yet; say exactly what must change.
+- A `fail` verdict means the change does not go to review yet; say exactly what must change. A
+  criterion without evidence in any layer it touches, or a requirement deferred to later, is a
+  `fail`. `pass with notes` is for notes nothing has to be fixed for: with
+  `approvals: {implementation: off}` your verdict and the Reviewer's close the change and no one
+  reads it after you.
 
 ## Done when
 Every acceptance criterion in the change has evidence and the verdict is in `implementation.md`.

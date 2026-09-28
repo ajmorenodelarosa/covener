@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.10.0] - 2026-09-28
+
+The implementation gate can be turned off, for a prototype built in one go. No one approves, and the
+record says so.
+
+### Added
+- `approvals: {implementation: off}` in `.covener/config.yaml`; `human` stays the default. The
+  implementation gate takes `human` or `off`, never `reviewer`: QA and the reviewer already read the
+  implementation, so handing it to an agent would be a second review or a signature for nothing.
+- With the gate off, `covener change archive` closes a change in `review` when every task is ticked,
+  the design and the plan are approved, the latest QA and review verdicts are `pass` or
+  `pass with notes`, and nothing is uncommitted (tracked changes anywhere, or anything in the change
+  folder). It writes `approval: off` next to `status: review` in `implementation.md` instead of an
+  approval, marks the items done and archives.
+- Checks: `change.closed-without-the-rule` re-checks the rule from an archived change's own files,
+  whatever the configuration says today; `change.invalid-approval` for `approval:` with any other
+  value, on a status other than `review`, or on an open change. An item closed this way is not
+  `done-without-approval`.
+- `covener status` does not count a change in review as yours with the gate off, tells the agents to
+  archive it, marks the item *closed without approval* under Done, and the JSON carries `approval`
+  per done item.
+
+### Changed
+- The engineer archives right after committing when the gate is off, and never writes
+  `approval: off` or `status: approved` itself.
+- QA and the reviewer say what fails: a criterion without evidence in a layer it touches, a
+  requirement deferred to later, an edit to another open change's code the item does not require.
+  `pass with notes` means nothing has to be fixed; with the gate off, what needs a person is
+  escalated, never left as a note.
+- AGENTS.md rules 3 and 6, the unattended runs paragraph, `.covener/states.yaml`, the
+  `implementation.md` template and the README describe the gate.
+
+### Upgrading
+```bash
+pip install -U covener          # uv: uv tool install --reinstall --refresh "covener[mcp]"
+covener init                    # states.yaml and the AGENTS.md block
+covener init --update-defaults  # the new prompts and templates, keeping each agent's model
+```
+Nothing changes until you add `implementation: off` under `approvals:` in `.covener/config.yaml`.
+
 ## [0.9.4] - 2026-09-28
 
 After a day of unattended running: nothing was in git, QA and the reviewer ran the same suite, and

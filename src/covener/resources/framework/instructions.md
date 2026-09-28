@@ -48,7 +48,8 @@ Rules for every agent:
    engineer then hands the file to the reviewer, who approves it with `status: approved` and
    `approved-by: reviewer` or asks for changes, and escalates to the human only when
    `skills/architecture/SKILL.md` is still the template, after two rounds without agreement, or when
-   the item itself contradicts another item. The implementation is always approved by the human.
+   the item itself contradicts another item. The implementation is approved by the human, unless
+   `approvals: {implementation: off}` removes that gate (rule 6).
 4. Agents never set `status: approved` on any file, except the reviewer on a gate `approvals:`
    delegates to it, signed `approved-by: reviewer`. Record what you did, decided and found in the
    change's `implementation.md`, short and useful, never chat logs; tick tasks as you finish them.
@@ -60,7 +61,14 @@ Rules for every agent:
    and a `git checkout` must not be able to lose a day's work.
 6. After the human sets `implementation.md` to `status: approved`, close the change with
    `covener change archive <name>`: it marks the items done and moves the change to the archive. It
-   refuses without that approval, and while a task is open. Commit the archive.
+   refuses without that approval, and while a task is open. Commit the archive. With
+   `approvals: {implementation: off}` no one approves the implementation: once the change is in
+   review and committed, the engineer runs `covener change archive <name>` right away. It closes
+   the change only when every task is ticked, the design and the plan are approved, the latest QA
+   and review verdicts pass and nothing is uncommitted, and it leaves `status: review` with
+   `approval: off` in `implementation.md`, so the record never claims an approval that did not
+   happen. With the gate off, a verdict is what closes the change: what needs fixing is a `fail`,
+   and what needs a person is escalated, never left as a note.
 7. A trivial fix (one place, no design decision) needs no bug file and no change: do it, test it, say so.
 8. Never state what a regulation or document says without evidence from `knowledge/`; if there is
    none, say so. Items that depend on such a statement cite it in `references:`.
@@ -74,9 +82,11 @@ Rules for every agent:
 Unattended runs. When the human asks for the backlog to be run without them and `approvals:`
 delegates the design and the tasks to the reviewer, the agents take every routine decision
 themselves and record it under `## Decisions` in `implementation.md`, which the human reads when
-they approve the implementation: that is the only human gate left. The planner takes the first
+they approve the implementation: that is the only human gate left, and with
+`approvals: {implementation: off}` there is none: each change is archived as soon as it passes,
+nothing stacks, and the human reads the archive when they choose. The planner takes the first
 item of the ordered backlog, never skips one, and moves to the next as soon as a change is in
-review. The run works on one branch, with one commit per change when it reaches review and one
+review or archived. The run works on one branch, with one commit per change when it reaches review and one
 per rework; a branch per change is for the flow the human drives, since rework on a stacked change
 would mean rebasing every change above it. The run stops when the reviewer escalates, when QA or
 the reviewer fail the same change twice, when the backlog is empty, or when as many changes as the

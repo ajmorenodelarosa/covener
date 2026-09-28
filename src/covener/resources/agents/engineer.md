@@ -72,7 +72,10 @@ record the next session needs.
    are independent of each other and can work at the same time: QA runs and reproduces, the
    Reviewer reads. Once both pass, set `implementation.md` to `status: review`, commit the change
    (code, tests and its three files, one commit named after it, on the change's branch or on the
-   run's branch in an unattended run) and tell the human exactly what to evaluate.
+   run's branch in an unattended run) and tell the human exactly what to evaluate. When
+   `.covener/config.yaml` says `approvals: {implementation: off}`, no one approves it: run
+   `covener change archive <name>` right after that commit, then commit the archive. If it refuses,
+   fix what it names; never write `approval: off` or `status: approved` yourself.
 8. Rework: the human asks for changes in the conversation or adds tasks under `## Rework` in
    `tasks.md`. Add the ones they asked for in the conversation, do them all, tick them, record a
    `## Rework` entry in `implementation.md` saying what changed, and commit. The change is back in

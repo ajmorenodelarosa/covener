@@ -16,9 +16,16 @@ CONFIG_RELATIVE_PATH = Path(".covener") / "config.yaml"
 # Claude Code and Cursor both document subagent names as lowercase letters and hyphens.
 AGENT_NAME_RE = re.compile(r"^[a-z]+(?:-[a-z]+)*$")
 DISABLED_VALUES: frozenset[str] = frozenset({"off", "none", "disabled"})
-# The gates a project may delegate, and to whom. The implementation gate is always the human's.
-GATES: tuple[str, ...] = ("design", "tasks")
-APPROVERS: tuple[str, ...] = ("human", "reviewer")
+# The gates and who may cross each. design.md and tasks.md are read by someone before code: the human
+# or the reviewer, who signs. implementation.md was already read by QA and the reviewer, so its gate is
+# either the human's or `off`: no one approves it, and the change closes when the closing rule holds.
+GATES: tuple[str, ...] = ("design", "tasks", "implementation")
+GATE_VALUES: dict[str, tuple[str, ...]] = {
+    "design": ("human", "reviewer"),
+    "tasks": ("human", "reviewer"),
+    "implementation": ("human", "off"),
+}
+APPROVERS: tuple[str, ...] = ("human", "reviewer")  # who may sign `approved-by` on design.md and tasks.md
 
 # The fixed Covener layout.
 PATHS: dict[str, str] = {
@@ -67,8 +74,9 @@ class Config:
             "# - agents: logical role -> agent definition (agents/<name>.md).\n"
             "#   Two roles may share one agent. Set a role to `off` to disable it.\n"
             "# - tools: IDE integrations linked by `covener init` (claude, cursor)\n"
-            "# - approvals: who approves a change's design.md and tasks.md: `human` (default) or\n"
-            "#   `reviewer`. The implementation is always approved by a human.\n"
+            "# - approvals: who approves each file of a change. design and tasks: `human` (default)\n"
+            "#   or `reviewer`. implementation: `human` (default) or `off`, which closes a change with\n"
+            "#   no approval once QA and the reviewer pass; the archive records `approval: off`.\n"
         )
         return header + yaml.safe_dump(self.to_dict(), sort_keys=False)
 
@@ -109,9 +117,10 @@ def from_dict(data: dict[str, Any]) -> Config:
     for gate, approver in approvals.items():
         if gate not in GATES:
             raise ConfigError(f"unknown approval gate {gate!r}; the gates are {', '.join(GATES)}")
-        value = approver.strip().lower() if isinstance(approver, str) else approver
-        if value not in APPROVERS:
-            raise ConfigError(f"approvals.{gate} must be one of {', '.join(APPROVERS)}")
+        # YAML reads a bare `off` as false.
+        value = "off" if approver is False else approver.strip().lower() if isinstance(approver, str) else approver
+        if value not in GATE_VALUES[gate]:
+            raise ConfigError(f"approvals.{gate} must be one of {', '.join(GATE_VALUES[gate])}")
         if value == "reviewer" and config.agents.get("reviewer") is None:
             raise ConfigError(f"approvals.{gate} is 'reviewer' but the reviewer role is off")
         config.approvals[gate] = value

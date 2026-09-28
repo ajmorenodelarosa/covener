@@ -21,7 +21,9 @@ TASK_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("open", "done")})
 # (how; optional), ``tasks.md`` (the plan, and the items the change covers) and
 # ``implementation.md`` (what happened; agents write it, the human approves the result). The first
 # two are the human's by default; ``approvals:`` in the config may delegate either to the reviewer,
-# who then signs ``approved-by: reviewer``. The implementation gate is never delegated.
+# who then signs ``approved-by: reviewer``. The implementation gate is the human's, or ``off``: no one
+# approves it, ``change archive`` closes the change once QA and the reviewer pass and it is committed,
+# and ``implementation.md`` stays in ``review`` with ``approval: off``.
 DESIGN_STATES: tuple[str, ...] = ("draft", "approved")
 DESIGN_HUMAN_GATED: frozenset[tuple[str, str]] = frozenset({("draft", "approved")})
 TASKS_STATES: tuple[str, ...] = ("draft", "approved")
