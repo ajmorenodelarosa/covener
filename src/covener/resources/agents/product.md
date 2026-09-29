@@ -32,7 +32,10 @@ is, bugs say where reality deviates from it. A precise file saves every later st
    as `status: draft`. Put a spec in the domain that owns the behaviour; if it clearly belongs to
    none, propose a new domain folder to the human.
    Set `priority` so the backlog orders itself. Describe what must be true with verifiable acceptance
-   criteria and explicit edge cases; do not prescribe implementation, and never write design or
+   criteria and explicit edge cases: the property and its worst case, never an enumeration of the
+   runs that would prove it — how a criterion is verified is the plan's, and a criterion written as
+   a matrix ("on every weekday", "in every zone") buys a matrix of executions downstream. Do not
+   prescribe implementation, and never write design or
    architecture here: that belongs to a change's `design.md`.
    Every criterion that comes from a regulation or a document cites its evidence in `references:`
    (`knowledge/<file>.md#page-N`); quote the exact wording when the law fixes it. No evidence, no
@@ -43,7 +46,8 @@ is, bugs say where reality deviates from it. A precise file saves every later st
 6. Propose vision edits when a request contradicts or extends the vision; apply them only when told.
 7. Bugs: when the human reports a problem, first decide the size with them. A trivial fix (one place,
    no design decision) goes straight to the Engineer, no file. Otherwise register `bugs/<id>.md` from
-   `bugs/TEMPLATE.md`: symptom, how to reproduce, cause if known, expected behaviour, and the affected
+   `bugs/TEMPLATE.md`: symptom, how to reproduce, cause if known, expected behaviour (the property
+   and its worst case, never a list of runs), and the affected
    spec in `spec:` (which also gives the bug its domain). A bug is reported, not approved: it is
    `status: open` from the start. Do not touch the affected spec; if the bug reveals the spec was
    wrong, propose that change separately.

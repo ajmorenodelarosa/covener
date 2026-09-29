@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.10.4] - 2026-09-29
+
+A test-tool bug cost three and a half hours: its expected behaviour said "on every weekday and
+hour", the plan turned that into nine full end-to-end runs, and the reviewer's plan gate approved
+the matrix and widened it — although the change's own parameterised test already covered all the
+classes. 0.10.2's equivalence-class rule lived only in QA, the gate where evidence is paid; the
+cost was committed three gates earlier. A rule about cost belongs at the gate where the cost is
+committed. Prompts only.
+
+### Changed
+- Criteria state the property and its worst case, never an enumeration of the runs that would prove
+  it: how a criterion is verified is the plan's, and a criterion written as a matrix buys a matrix
+  of executions downstream. In `product.md` for specs and for a bug's expected behaviour.
+- The plan proves variants — days, zones, sizes, locales — with one parameterised test over their
+  equivalence classes plus one end-to-end run on the current build to confirm the wiring
+  (`engineer.md`). The reviewer's plan gate sends back a plan that repeats an expensive run over a
+  matrix, the same way it sends back a domain-wide refactor: more runs of the same class raise the
+  cost, not the bar (`reviewer.md`).
+- A step whose execution turns out to repeat evidence already recorded — a matrix of runs, endless
+  flaky retries — is stopped and the deviation proposed under `## Decisions`, not paid in full
+  (`engineer.md`). Countable mid-flight, unlike a clock an agent cannot watch.
+- One team-level sentence in AGENTS.md rule 3, read by every role: criteria, plans and reviews never
+  multiply the same evidence over a matrix.
+
+### Upgrading
+```bash
+pip install -U covener            # uv: uv tool install --reinstall --refresh "covener[mcp]"
+git commit -am "wip"              # --update-defaults rewrites the agent prompts
+covener init --update-defaults    # everything init does, plus the new prompts
+git diff                          # what changed in the prompts
+```
+
 ## [0.10.3] - 2026-09-29
 
 Windows CI caught 0.10.2's release commit: a test rewrote an agent prompt without naming an

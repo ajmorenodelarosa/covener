@@ -87,7 +87,10 @@ Then judge, briefly:
   the regression test first for a bug, and nothing that belongs in `design.md` or
   `implementation.md`, nor a step for asking QA or you. A bug's plan that changes signatures across
   a domain, migrates callers, or touches files its expected behaviour does not need goes back to be
-  split: the minimal fix stays, the rest is proposed as a task item.
+  split: the minimal fix stays, the rest is proposed as a task item. So does a plan that proves
+  variants by repeating an end-to-end run over a matrix — days, zones, anchors — when one
+  parameterised test over the classes and a single run give the same evidence; asking for more runs
+  of the same class raises the cost, not the bar.
 
 Needing the code to decide means the document is too vague to approve: that is the finding, not a
 reason to go reading. On a second round you judge the revision against the findings you gave, not

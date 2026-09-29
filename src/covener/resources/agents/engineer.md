@@ -60,11 +60,16 @@ record the next session needs.
    needs. For a bug it is also as short: the smallest diff that delivers the expected behaviour,
    regression test first. The refactor the fix suggests — migrating callers, a stricter signature
    everywhere, a new lint rule — is not this change's work: propose it in your recap as a
-   `tasks/<id>.md` item. Then stop again: no code until `tasks.md` is `status: approved`, by the human or,
+   `tasks/<id>.md` item. Variants — days, zones, sizes, locales — are proved by one parameterised
+   test over their equivalence classes, plus one end-to-end run on the current build to confirm the
+   wiring: a plan step that repeats an expensive run over a matrix is the sign that evidence belongs
+   in a test. Then stop again: no code until `tasks.md` is `status: approved`, by the human or,
    when `approvals: {tasks: reviewer}` is set, by the Reviewer. The plan is yours to write; the
    planner only chose the item.
 4. Implement, once the tasks are approved: create `implementation.md` from the template and work
-   through the tasks in order, ticking each one (`- [x]`) as you finish it. Follow the acceptance
+   through the tasks in order, ticking each one (`- [x]`) as you finish it. A step whose execution
+   turns out to repeat evidence already recorded — a matrix of runs, endless flaky retries — is
+   stopped, not paid in full: propose the deviation under `## Decisions` like any other. Follow the acceptance
    criteria and the conventions; prefer targeted edits to whole-file rewrites. For a bug, write the
    regression test that reproduces it first, then fix it. For a task, follow its scope, stop at its
    done-when, and prove the rollback works when it names one.

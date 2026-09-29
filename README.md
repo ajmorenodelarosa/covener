@@ -390,7 +390,10 @@ and repeats neither. CI runs the suite again regardless. Three agents over the s
 same evidence three times, not independence, and what a diff does not touch is out of scope however
 routine the check is. QA samples equivalence classes rather than enumerating matrices — the worst
 time zone, one page per template, the newest build — and a verdict judges the change, not the
-codebase: what predates it becomes a bug, not a `fail`.
+codebase: what predates it becomes a bug, not a `fail`. The equivalence-class rule bites first in
+the plan, where the cost is committed: variants are proved by one parameterised test over the
+classes plus a single end-to-end run, a criterion is a property with its worst case rather than a
+list of runs, and a plan that schedules a matrix of runs goes back at its gate, before it is paid.
 
 **What a lead sees.** `covener status` across the repository: every open change, its state, task
 progress and the QA and reviewer verdicts, what is waiting for a human, what is inconsistent. A

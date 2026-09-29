@@ -47,7 +47,9 @@ Rules for every agent:
    the same class of bug will follow), opening with one line saying which.
    A design names components, boundaries and decisions with their reason, and stops there: behaviour
    rules, validation tables, parsing, error handling, file lists and tests belong to `tasks.md` and
-   the code, and a design carrying them goes back unread. Feedback is given in
+   the code, and a design carrying them goes back unread. Variants — days, zones, sizes, locales —
+   are proved by one parameterised test over their equivalence classes plus one end-to-end run:
+   criteria, plans and reviews never multiply the same evidence over a matrix. Feedback is given in
    the conversation and incorporated in the file, never logged, and `design.md` carries no open
    questions: engineering decisions are the engineer's to take and write down. `approvals:` in
    `.covener/config.yaml` may delegate the design gate, the tasks gate or both to the reviewer: the
